@@ -2,6 +2,15 @@ import { useEffect, useMemo, useState } from "react";
 import api from "../services/api";
 import ExpenseForm from "../components/forms/ExpenseForm";
 import TransactionTable, { type Transaction } from "../components/tables/TransactionTable";
+import Typography from "@mui/material/Typography";
+import TextField from "@mui/material/TextField";
+import MenuItem from "@mui/material/MenuItem";
+import InputAdornment from "@mui/material/InputAdornment";
+import SearchIcon from "@mui/icons-material/Search";
+import Skeleton from "@mui/material/Skeleton";
+import Box from "@mui/material/Box";
+import { motion } from "framer-motion";
+import toast from "react-hot-toast";
 
 type ExpenseApi = {
   id: number;
@@ -22,40 +31,62 @@ const ExpensesPage = () => {
 
   const load = async () => {
     setLoading(true);
-    const params: any = {};
-    if (categoryFilter !== "all") params.category = categoryFilter;
-    const res = await api.get<ExpenseApi[]>("/expenses", { params });
-    setItems(res.data);
-    setLoading(false);
+    try {
+      const params: Record<string, string> = {};
+      if (categoryFilter !== "all") params.category = categoryFilter;
+      const res = await api.get<ExpenseApi[]>("/expenses", { params });
+      setItems(res.data);
+    } catch {
+      toast.error("Failed to load expenses");
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     load();
   }, [categoryFilter]);
 
-  const handleSubmit = async (values: { amount: number; category: string; date: string; description?: string }) => {
-    if (editing) {
-      await api.put(`/expenses/${editing.id}`, values);
-    } else {
-      await api.post("/expenses", values);
+  const handleSubmit = async (values: {
+    amount: number;
+    category: string;
+    date: string;
+    description?: string;
+  }) => {
+    try {
+      if (editing) {
+        await api.put(`/expenses/${editing.id}`, values);
+        toast.success("Expense updated");
+      } else {
+        await api.post("/expenses", values);
+        toast.success("Expense added");
+      }
+      setEditing(null);
+      load();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error(msg || "Failed to save expense");
     }
-    setEditing(null);
-    load();
   };
 
   const handleDelete = async (id: number) => {
-    await api.delete(`/expenses/${id}`);
-    load();
+    try {
+      await api.delete(`/expenses/${id}`);
+      toast.success("Expense deleted");
+      load();
+    } catch {
+      toast.error("Failed to delete expense");
+    }
   };
 
   const filtered: Transaction[] = useMemo(
     () =>
       items
-        .filter((i) =>
-          search
-            ? i.category.toLowerCase().includes(search.toLowerCase()) ||
-              (i.description || "").toLowerCase().includes(search.toLowerCase())
-            : true
+        .filter(
+          (i) =>
+            !search ||
+            i.category.toLowerCase().includes(search.toLowerCase()) ||
+            (i.description || "").toLowerCase().includes(search.toLowerCase())
         )
         .map((i) => ({
           id: i.id,
@@ -68,30 +99,20 @@ const ExpensesPage = () => {
   );
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold">Expenses</h1>
-        <div className="flex gap-2">
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="rounded border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs"
-          >
-            <option value="all">All categories</option>
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-          <input
-            placeholder="Search expenses..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-56 rounded border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs"
-          />
-        </div>
-      </div>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+    >
+      <Box mb={3}>
+        <Typography variant="h5" fontWeight={600} gutterBottom>
+          Expenses
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Track and categorize your spending
+        </Typography>
+      </Box>
+
       <ExpenseForm
         categories={CATEGORIES}
         initial={
@@ -106,22 +127,60 @@ const ExpensesPage = () => {
         }
         onSubmit={handleSubmit}
       />
+
+      <Box
+        display="flex"
+        flexDirection={{ xs: "column", sm: "row" }}
+        gap={2}
+        mb={2}
+        alignItems="center"
+        flexWrap="wrap"
+      >
+        <TextField
+          select
+          size="small"
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value)}
+          sx={{ minWidth: 180 }}
+        >
+          <MenuItem value="all">All categories</MenuItem>
+          {CATEGORIES.map((c) => (
+            <MenuItem key={c} value={c}>
+              {c}
+            </MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          placeholder="Search by category or description..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          size="small"
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" color="action" />
+              </InputAdornment>
+            ),
+          }}
+          sx={{ maxWidth: 340, width: "100%", flex: 1 }}
+        />
+      </Box>
+
       {loading ? (
-        <p className="text-sm text-slate-400">Loading...</p>
+        <Skeleton variant="rectangular" height={280} sx={{ borderRadius: 2 }} />
       ) : (
         <TransactionTable
           data={filtered}
           type="expense"
           onEdit={(t) => {
-            const found = items.find((i) => i.id === t.id) || null;
+            const found = items.find((i) => i.id === t.id) ?? null;
             setEditing(found);
           }}
           onDelete={handleDelete}
         />
       )}
-    </div>
+    </motion.div>
   );
 };
 
 export default ExpensesPage;
-

@@ -2,6 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import api from "../services/api";
 import IncomeForm from "../components/forms/IncomeForm";
 import TransactionTable, { type Transaction } from "../components/tables/TransactionTable";
+import Typography from "@mui/material/Typography";
+import TextField from "@mui/material/TextField";
+import InputAdornment from "@mui/material/InputAdornment";
+import SearchIcon from "@mui/icons-material/Search";
+import Skeleton from "@mui/material/Skeleton";
+import Box from "@mui/material/Box";
+import { motion } from "framer-motion";
+import toast from "react-hot-toast";
 
 type IncomeApi = {
   id: number;
@@ -19,38 +27,60 @@ const IncomePage = () => {
 
   const load = async () => {
     setLoading(true);
-    const res = await api.get<IncomeApi[]>("/income");
-    setItems(res.data);
-    setLoading(false);
+    try {
+      const res = await api.get<IncomeApi[]>("/income");
+      setItems(res.data);
+    } catch {
+      toast.error("Failed to load income");
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     load();
   }, []);
 
-  const handleSubmit = async (values: { amount: number; source: string; date: string; description?: string }) => {
-    if (editing) {
-      await api.put(`/income/${editing.id}`, values);
-    } else {
-      await api.post("/income", values);
+  const handleSubmit = async (values: {
+    amount: number;
+    source: string;
+    date: string;
+    description?: string;
+  }) => {
+    try {
+      if (editing) {
+        await api.put(`/income/${editing.id}`, values);
+        toast.success("Income updated");
+      } else {
+        await api.post("/income", values);
+        toast.success("Income added");
+      }
+      setEditing(null);
+      load();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error(msg || "Failed to save income");
     }
-    setEditing(null);
-    load();
   };
 
   const handleDelete = async (id: number) => {
-    await api.delete(`/income/${id}`);
-    load();
+    try {
+      await api.delete(`/income/${id}`);
+      toast.success("Income deleted");
+      load();
+    } catch {
+      toast.error("Failed to delete income");
+    }
   };
 
   const filtered: Transaction[] = useMemo(
     () =>
       items
-        .filter((i) =>
-          search
-            ? i.source.toLowerCase().includes(search.toLowerCase()) ||
-              (i.description || "").toLowerCase().includes(search.toLowerCase())
-            : true
+        .filter(
+          (i) =>
+            !search ||
+            i.source.toLowerCase().includes(search.toLowerCase()) ||
+            (i.description || "").toLowerCase().includes(search.toLowerCase())
         )
         .map((i) => ({
           id: i.id,
@@ -63,16 +93,20 @@ const IncomePage = () => {
   );
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold">Income</h1>
-        <input
-          placeholder="Search income..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-56 rounded border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs"
-        />
-      </div>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+    >
+      <Box mb={3}>
+        <Typography variant="h5" fontWeight={600} gutterBottom>
+          Income
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Track your income and manage sources
+        </Typography>
+      </Box>
+
       <IncomeForm
         initial={
           editing
@@ -86,22 +120,39 @@ const IncomePage = () => {
         }
         onSubmit={handleSubmit}
       />
+
+      <Box display="flex" flexDirection={{ xs: "column", sm: "row" }} gap={2} mb={2} alignItems="center">
+        <TextField
+          placeholder="Search by source or description..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          size="small"
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" color="action" />
+              </InputAdornment>
+            ),
+          }}
+          sx={{ maxWidth: 340, width: "100%" }}
+        />
+      </Box>
+
       {loading ? (
-        <p className="text-sm text-slate-400">Loading...</p>
+        <Skeleton variant="rectangular" height={280} sx={{ borderRadius: 2 }} />
       ) : (
         <TransactionTable
           data={filtered}
           type="income"
           onEdit={(t) => {
-            const found = items.find((i) => i.id === t.id) || null;
+            const found = items.find((i) => i.id === t.id) ?? null;
             setEditing(found);
           }}
           onDelete={handleDelete}
         />
       )}
-    </div>
+    </motion.div>
   );
 };
 
 export default IncomePage;
-
