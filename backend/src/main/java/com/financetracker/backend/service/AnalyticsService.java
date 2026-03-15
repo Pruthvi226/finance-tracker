@@ -4,6 +4,6 @@ import com.financetracker.backend.dto.AnalyticsDto;
 
 public interface AnalyticsService {
 
-    AnalyticsDto getAnalytics();
+    AnalyticsDto getAnalytics(Long accountId);
 }
 

@@ -24,15 +24,19 @@ public class User {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    @Column(name = "base_currency", nullable = false, length = 3)
+    private String baseCurrency = "USD";
+
     public User() {
     }
 
-    public User(Long id, String name, String email, String password, Instant createdAt) {
+    public User(Long id, String name, String email, String password, Instant createdAt, String baseCurrency) {
         this.id = id;
         this.name = name;
         this.email = email;
         this.password = password;
         this.createdAt = createdAt;
+        this.baseCurrency = baseCurrency;
     }
 
     @PrePersist
@@ -78,5 +82,13 @@ public class User {
 
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getBaseCurrency() {
+        return baseCurrency;
+    }
+
+    public void setBaseCurrency(String baseCurrency) {
+        this.baseCurrency = baseCurrency;
     }
 }

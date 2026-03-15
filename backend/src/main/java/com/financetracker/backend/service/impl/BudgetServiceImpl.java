@@ -4,7 +4,7 @@ import com.financetracker.backend.dto.BudgetDto;
 import com.financetracker.backend.entity.Budget;
 import com.financetracker.backend.entity.User;
 import com.financetracker.backend.repository.BudgetRepository;
-import com.financetracker.backend.repository.ExpenseRepository;
+import com.financetracker.backend.repository.TransactionRepository;
 import com.financetracker.backend.service.BudgetService;
 import com.financetracker.backend.service.UserService;
 import org.springframework.stereotype.Service;
@@ -18,14 +18,14 @@ import java.time.YearMonth;
 public class BudgetServiceImpl implements BudgetService {
 
     private final BudgetRepository budgetRepository;
-    private final ExpenseRepository expenseRepository;
+    private final TransactionRepository transactionRepository;
     private final UserService userService;
 
     public BudgetServiceImpl(BudgetRepository budgetRepository,
-                             ExpenseRepository expenseRepository,
+                             TransactionRepository transactionRepository,
                              UserService userService) {
         this.budgetRepository = budgetRepository;
-        this.expenseRepository = expenseRepository;
+        this.transactionRepository = transactionRepository;
         this.userService = userService;
     }
 
@@ -72,9 +72,10 @@ public class BudgetServiceImpl implements BudgetService {
         LocalDate end = currentMonth.atEndOfMonth();
 
         return budget.getMonthlyLimit()
-                .subtract(expenseRepository.findByUserAndDateBetween(user, start, end)
+                .subtract(transactionRepository.findByUserIdAndDateBetween(user.getId(), start, end)
                         .stream()
-                        .map(e -> e.getAmount())
+                        .filter(t -> t.getType() == com.financetracker.backend.entity.TransactionType.EXPENSE)
+                        .map(t -> t.getAmount())
                         .reduce(BigDecimal.ZERO, BigDecimal::add));
     }
 

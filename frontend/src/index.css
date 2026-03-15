@@ -2,11 +2,61 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply bg-slate-950 text-slate-100 antialiased;
+@layer base {
+  body {
+    @apply bg-background dark:bg-slate-950 dark:text-slate-200 antialiased;
+    color: #0F172A;
+    font-family: 'Inter', sans-serif;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-black tracking-tight uppercase;
+    color: #020617;
+  }
+  
+  .dark body {
+    background-image: 
+      radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.05), transparent 25%),
+      radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.05), transparent 25%);
+    background-attachment: fixed;
+  }
 }
 
-.card {
-  @apply bg-slate-900/80 border border-slate-800 rounded-xl p-4 shadow-lg;
+@layer components {
+  .glass-card {
+    @apply bg-surface dark:bg-slate-900/40 backdrop-blur-xl border border-border dark:border-white/5 rounded-[1.25rem] shadow-sm hover:shadow-md transition-all duration-300;
+  }
+  
+  .glass-panel {
+    @apply bg-surface dark:bg-slate-950/60 backdrop-blur-2xl border-r border-border dark:border-white/5;
+  }
+
+  .btn-primary {
+    @apply px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-bold shadow-md shadow-primary-500/10 transition-all active:scale-[0.98] flex items-center justify-center gap-2;
+  }
+
+  .btn-secondary {
+    @apply px-5 py-2.5 bg-white hover:bg-gray-50 dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-slate-200 rounded-xl font-black border border-border dark:border-white/5 shadow-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2 uppercase tracking-widest text-[10px];
+    color: #020617;
+  }
+
+  .input-field {
+    @apply w-full bg-white dark:bg-slate-900/50 border border-border dark:border-white/10 rounded-xl px-4 py-2.5 dark:text-slate-200 font-bold focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all;
+    color: #0F172A;
+  }
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary-600 to-indigo-600 dark:from-white dark:to-slate-400 font-black;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }
 

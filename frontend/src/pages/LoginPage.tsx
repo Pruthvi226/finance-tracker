@@ -27,50 +27,73 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950">
-      <div className="w-full max-w-md card">
-        <h1 className="text-xl font-semibold mb-2">Welcome back</h1>
-        <p className="text-sm text-slate-400 mb-6">
-          Sign in to your personal finance dashboard.
-        </p>
-        {error && (
-          <p className="mb-3 text-sm text-danger bg-danger/10 border border-danger/40 rounded px-3 py-2">
-            {error}
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-950 relative overflow-hidden">
+      {/* Background decoration */}
+      <div className="absolute -top-[20%] -left-[10%] w-[70vw] h-[70vw] max-w-[800px] max-h-[800px] bg-primary-600/5 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute -bottom-[20%] -right-[10%] w-[60vw] h-[60vw] max-w-[600px] max-h-[600px] bg-primary-600/5 rounded-full blur-[120px] pointer-events-none" />
+
+      <div className="w-full max-w-md glass-card p-10 relative z-10 m-4 border border-border dark:border-white/5">
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-primary-50 dark:bg-primary-500/10 border border-primary-100 dark:border-primary-500/20 mb-6 shadow-xl shadow-primary-500/5 text-4xl">
+            ✨
+          </div>
+          <h1 className="text-4xl font-black text-textHeadings dark:text-slate-100 uppercase tracking-tighter mb-2">Welcome Back</h1>
+          <p className="text-[10px] text-textSecondary dark:text-slate-400 font-black uppercase tracking-[0.2em]">
+            Precision Financial Management
           </p>
+        </div>
+
+        {error && (
+          <div className="mb-6 text-xs font-black uppercase tracking-widest text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 rounded-xl px-4 py-4 flex items-center gap-3">
+            <span className="text-lg">⚠️</span> {error}
+          </div>
         )}
-        <form onSubmit={handleSubmit} className="space-y-3">
+
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="text-xs text-slate-400">Email</label>
+            <label className="block text-[10px] font-black text-textHeadings dark:text-slate-300 mb-2 uppercase tracking-widest">Email Address</label>
             <input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+              className="input-field font-bold"
+              placeholder="you@example.com"
             />
           </div>
           <div>
-            <label className="text-xs text-slate-400">Password</label>
+            <label className="block text-[10px] font-black text-textHeadings dark:text-slate-300 mb-2 uppercase tracking-widest">Password</label>
             <input
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+              className="input-field font-bold"
+              placeholder="••••••••"
             />
           </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full mt-2 px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-sm font-medium"
-          >
-            {loading ? "Signing in..." : "Sign in"}
-          </button>
+          <div className="pt-4">
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-primary w-full py-4 text-sm font-black uppercase tracking-widest shadow-xl shadow-primary-600/20"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                  Processing...
+                </span>
+              ) : (
+                "Sign In"
+              )}
+            </button>
+          </div>
         </form>
-        <p className="mt-4 text-xs text-slate-400 text-center">
+        
+        <p className="mt-10 text-[10px] text-textSecondary dark:text-slate-400 text-center font-black uppercase tracking-widest">
           Don&apos;t have an account?{" "}
-          <Link to="/register" className="text-primary-400 hover:text-primary-300">
-            Create one
+          <Link to="/register" className="text-primary-600 dark:text-primary-400 font-black border-b border-primary-600/30 hover:border-primary-600 transition-all ml-1">
+            SIGN UP
           </Link>
         </p>
       </div>

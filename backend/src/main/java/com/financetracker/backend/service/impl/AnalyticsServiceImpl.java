@@ -1,11 +1,10 @@
 package com.financetracker.backend.service.impl;
 
 import com.financetracker.backend.dto.AnalyticsDto;
-import com.financetracker.backend.entity.Expense;
-import com.financetracker.backend.entity.Income;
+import com.financetracker.backend.entity.Transaction;
+import com.financetracker.backend.entity.TransactionType;
 import com.financetracker.backend.entity.User;
-import com.financetracker.backend.repository.ExpenseRepository;
-import com.financetracker.backend.repository.IncomeRepository;
+import com.financetracker.backend.repository.TransactionRepository;
 import com.financetracker.backend.service.AnalyticsService;
 import com.financetracker.backend.service.UserService;
 import org.springframework.stereotype.Service;
@@ -19,28 +18,37 @@ import java.util.stream.Collectors;
 @Service
 public class AnalyticsServiceImpl implements AnalyticsService {
 
-    private final IncomeRepository incomeRepository;
-    private final ExpenseRepository expenseRepository;
+    private final TransactionRepository transactionRepository;
     private final UserService userService;
 
-    public AnalyticsServiceImpl(IncomeRepository incomeRepository,
-                                ExpenseRepository expenseRepository,
+    public AnalyticsServiceImpl(TransactionRepository transactionRepository,
                                 UserService userService) {
-        this.incomeRepository = incomeRepository;
-        this.expenseRepository = expenseRepository;
+        this.transactionRepository = transactionRepository;
         this.userService = userService;
     }
 
     @Override
-    public AnalyticsDto getAnalytics() {
+    public AnalyticsDto getAnalytics(Long accountId) {
         User user = userService.getCurrentUserEntity();
-        List<Income> incomes = incomeRepository.findByUser(user);
-        List<Expense> expenses = expenseRepository.findByUser(user);
+        
+        List<Transaction> transactions;
+        if (accountId != null) {
+            transactions = transactionRepository.findByUserIdAndAccountId(user.getId(), accountId);
+        } else {
+            transactions = transactionRepository.findByUserId(user.getId());
+        }
+
+        List<Transaction> incomes = transactions.stream()
+                .filter(t -> t.getType() == TransactionType.INCOME)
+                .collect(Collectors.toList());
+        List<Transaction> expenses = transactions.stream()
+                .filter(t -> t.getType() == TransactionType.EXPENSE)
+                .collect(Collectors.toList());
 
         Map<String, BigDecimal> categorySpending = expenses.stream()
                 .collect(Collectors.groupingBy(
-                        Expense::getCategory,
-                        Collectors.mapping(Expense::getAmount,
+                        e -> e.getCategory() != null ? e.getCategory().getName() : "Uncategorized",
+                        Collectors.mapping(Transaction::getAmount,
                                 Collectors.reducing(BigDecimal.ZERO, BigDecimal::add)
                         )
                 ));
@@ -48,7 +56,7 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         Map<String, BigDecimal> monthlyExpenses = expenses.stream()
                 .collect(Collectors.groupingBy(
                         e -> YearMonth.from(e.getDate()).toString(),
-                        Collectors.mapping(Expense::getAmount,
+                        Collectors.mapping(Transaction::getAmount,
                                 Collectors.reducing(BigDecimal.ZERO, BigDecimal::add)
                         )
                 ));
@@ -56,7 +64,7 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         Map<String, BigDecimal> monthlyIncome = incomes.stream()
                 .collect(Collectors.groupingBy(
                         i -> YearMonth.from(i.getDate()).toString(),
-                        Collectors.mapping(Income::getAmount,
+                        Collectors.mapping(Transaction::getAmount,
                                 Collectors.reducing(BigDecimal.ZERO, BigDecimal::add)
                         )
                 ));
@@ -68,4 +76,3 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         return dto;
     }
 }
-

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
-import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import { Line, Pie } from "react-chartjs-2";
 import {
@@ -15,15 +14,15 @@ import {
   Legend,
 } from "chart.js";
 import Skeleton from "@mui/material/Skeleton";
-import Button from "@mui/material/Button";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import TrendingDownIcon from "@mui/icons-material/TrendingDown";
 import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
 import ReceiptIcon from "@mui/icons-material/Receipt";
 import SavingsIcon from "@mui/icons-material/Savings";
 import MonetizationOnIcon from "@mui/icons-material/MonetizationOn";
-import AddIcon from "@mui/icons-material/Add";
-import FlagIcon from "@mui/icons-material/Flag";
+import FinancialHealthCard from "../components/Dashboard/FinancialHealthCard";
+import { StatCard } from "../components/Dashboard/StatCard";
+import { ChartCard } from "../components/Dashboard/ChartCard";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, ArcElement, Tooltip, Legend);
 
@@ -39,16 +38,15 @@ type Analytics = {
   monthlyIncome: Record<string, number>;
 };
 
-type ExpenseApi = { id: number; amount: number; category: string; date: string; description?: string };
-type IncomeApi = { id: number; amount: number; source: string; date: string; description?: string };
-
-type RecentTx = {
-  id: string;
-  type: "INCOME" | "EXPENSE";
-  title: string;
-  categoryOrSource: string;
-  date: string;
+type TransactionApi = {
+  id: number;
   amount: number;
+  currency: string;
+  type: "INCOME" | "EXPENSE";
+  date: string;
+  description: string;
+  category: { name: string } | null;
+  receiptUrl: string | null;
 };
 
 type Goal = {
@@ -92,56 +90,50 @@ const DashboardPage = () => {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [budgetStatus, setBudgetStatus] = useState<BudgetStatus | null>(null);
   const [goals, setGoals] = useState<Goal[]>([]);
-  const [recent, setRecent] = useState<RecentTx[]>([]);
+  const [recent, setRecent] = useState<TransactionApi[]>([]);
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<number | "ALL">("ALL");
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchAccounts = async () => {
+      try {
+        const res = await api.get("/accounts");
+        setAccounts(res.data);
+      } catch (e) {
+        console.error("Failed to load accounts");
+      }
+    };
+    fetchAccounts();
+  }, []);
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
-        const [dashRes, analyticsRes, budgetRes, goalsRes, expensesRes, incomeRes] = await Promise.all([
-          api.get<Dashboard>("/dashboard"),
-          api.get<Analytics>("/analytics"),
+        const accountParam = selectedAccountId !== "ALL" ? `?accountId=${selectedAccountId}` : "";
+        const [dashRes, analyticsRes, budgetRes, goalsRes, txRes] = await Promise.all([
+          api.get<Dashboard>(`/dashboard${accountParam}`),
+          api.get<Analytics>(`/analytics${accountParam}`),
           api.get<BudgetStatus>("/budget/status").catch(() => ({ data: { remaining: 0, exceeded: false } })),
           api.get<Goal[]>("/goals").catch(() => ({ data: [] as Goal[] })),
-          api.get<ExpenseApi[]>("/expenses").catch(() => ({ data: [] as ExpenseApi[] })),
-          api.get<IncomeApi[]>("/income").catch(() => ({ data: [] as IncomeApi[] })),
+          api.get<{ content: TransactionApi[] }>(`/transactions${accountParam ? `${accountParam}&` : "?"}pageNo=0&pageSize=5`).catch(() => ({ data: { content: [] } })),
         ]);
 
         setSummary(dashRes.data);
         setAnalytics(analyticsRes.data);
         setBudgetStatus(budgetRes.data);
         setGoals(goalsRes.data || []);
-
-        const merged: RecentTx[] = [
-          ...(expensesRes.data || []).map((e) => ({
-            id: `e_${e.id}`,
-            type: "EXPENSE" as const,
-            title: e.description?.trim() ? e.description : "Expense",
-            categoryOrSource: e.category,
-            date: e.date,
-            amount: Number(e.amount),
-          })),
-          ...(incomeRes.data || []).map((i) => ({
-            id: `i_${i.id}`,
-            type: "INCOME" as const,
-            title: i.description?.trim() ? i.description : "Income",
-            categoryOrSource: i.source,
-            date: i.date,
-            amount: Number(i.amount),
-          })),
-        ].sort((a, b) => (a.date < b.date ? 1 : -1));
-
-        setRecent(merged.slice(0, 5));
+        setRecent(txRes.data.content || []);
       } catch {
-        toast.error("Failed to load dashboard");
+        toast.error("Failed to load dashboard data");
       } finally {
         setLoading(false);
       }
     };
 
     load();
-  }, []);
+  }, [selectedAccountId]);
 
   const monthKeys = useMemo(() => {
     if (!analytics) return [] as string[];
@@ -183,12 +175,26 @@ const DashboardPage = () => {
         {
           label: "Spending",
           data: values,
-          borderColor: "rgba(59,130,246,0.95)",
-          backgroundColor: "rgba(59,130,246,0.18)",
-          tension: 0.35,
+          borderColor: "rgba(37, 99, 235, 1)", // primary-600
+          backgroundColor: (context: any) => {
+            const chart = context.chart;
+            const {ctx, chartArea} = chart;
+            if (!chartArea) return null;
+            const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+            gradient.addColorStop(0, 'rgba(37, 99, 235, 0)');
+            gradient.addColorStop(1, 'rgba(37, 99, 235, 0.15)');
+            return gradient;
+          },
+          tension: 0.4,
           fill: true,
-          pointRadius: 2,
-          pointHoverRadius: 4,
+          pointRadius: 5,
+          pointBackgroundColor: "#fff",
+          pointBorderColor: "rgba(37, 99, 235, 1)",
+          pointBorderWidth: 2,
+          pointHoverRadius: 7,
+          pointHoverBackgroundColor: "rgba(37, 99, 235, 1)",
+          pointHoverBorderColor: "#fff",
+          pointHoverBorderWidth: 2,
         },
       ],
     };
@@ -207,9 +213,10 @@ const DashboardPage = () => {
       datasets: [
         {
           data: entries.map(([, value]) => value),
-          backgroundColor: ["#3b82f6", "#22c55e", "#eab308", "#f97316", "#ec4899", "#8b5cf6"],
-          borderColor: "rgba(15,23,42,0.6)",
-          borderWidth: 1,
+          backgroundColor: ["#2563eb", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"],
+          borderColor: "#fff",
+          borderWidth: 2,
+          hoverOffset: 12,
         },
       ],
     };
@@ -300,134 +307,92 @@ const DashboardPage = () => {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-3 mb-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold text-slate-100">Dashboard</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-4xl font-black tracking-tight text-textHeadings dark:text-slate-50 uppercase">Dashboard</h1>
             {budgetStatus?.exceeded && (
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/20">
-                Budget exceeded
+              <span className="text-[10px] uppercase tracking-widest px-3 py-1.5 rounded-xl bg-rose-600 text-white font-black shadow-lg shadow-rose-600/20">
+                Budget Exceeded
               </span>
             )}
           </div>
-          <p className="text-sm text-slate-400">
-            Single-screen overview of your finances.
+          <p className="text-sm font-black text-textSecondary dark:text-slate-400 mt-2 uppercase tracking-widest">
+            Your financial overview
           </p>
         </div>
 
-        <div className="hidden md:flex items-center gap-2">
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<AddIcon />}
-            onClick={() => navigate("/expenses")}
+        <div className="flex items-center gap-3">
+          {/* Account Selector */}
+          <div className="relative group">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-primary-600 z-10 transition-transform group-hover:scale-110">
+              <AccountBalanceWalletIcon sx={{ fontSize: 18 }} />
+            </div>
+            <select
+              value={selectedAccountId}
+              onChange={(e) => setSelectedAccountId(e.target.value === "ALL" ? "ALL" : Number(e.target.value))}
+              className="bg-white dark:bg-slate-900/60 border border-border dark:border-white/10 rounded-2xl pl-12 pr-10 py-3.5 text-xs font-black text-textHeadings dark:text-slate-100 focus:outline-none focus:ring-4 focus:ring-primary-500/10 appearance-none min-w-[220px] cursor-pointer shadow-sm transition-all uppercase tracking-widest"
+            >
+              <option value="ALL">All Accounts</option>
+              {accounts.map(acc => (
+                <option key={acc.id} value={acc.id}>{acc.accountName.toUpperCase()}</option>
+              ))}
+            </select>
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-textMuted">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7"></path></svg>
+            </div>
+          </div>
+          <button
+            className="btn-primary"
+            onClick={() => navigate("/transactions")}
           >
-            Add expense
-          </Button>
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<AddIcon />}
-            onClick={() => navigate("/income")}
-          >
-            Add income
-          </Button>
+            Add New
+          </button>
         </div>
       </div>
 
       {!loading && !hasAnyData ? (
-        <div className="rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-xl p-6 shadow-sm shadow-black/30">
-          <h2 className="text-base font-semibold text-slate-100">No financial data yet</h2>
-          <p className="text-sm text-slate-400 mt-1">
-            Add your first transaction to see summaries, charts, and insights.
+        <div className="glass-card p-12 text-center flex flex-col items-center">
+          <h2 className="text-xl font-bold text-textPrimary dark:text-slate-100">Welcome to Finance Tracker!</h2>
+          <p className="text-textSecondary dark:text-slate-400 mt-2 max-w-md font-medium">
+            Add your first transaction to unlock your dashboard, charts, and AI-driven insights.
           </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate("/expenses")}>
-              Add expense
-            </Button>
-            <Button variant="outlined" startIcon={<AddIcon />} onClick={() => navigate("/income")}>
-              Add income
-            </Button>
-            <Button variant="outlined" startIcon={<AddIcon />} onClick={() => navigate("/budget")}>
-              Create budget
-            </Button>
-            <Button variant="outlined" startIcon={<FlagIcon />} onClick={() => navigate("/goals")}>
-              Add goal
-            </Button>
+          <div className="mt-8 flex gap-4">
+            <button className="btn-primary" onClick={() => navigate("/transactions")}>
+              Add Transaction
+            </button>
+            <button className="btn-secondary" onClick={() => navigate("/budget")}>
+              Setup Budget
+            </button>
           </div>
         </div>
       ) : (
         <div className="grid grid-cols-12 gap-4">
           {/* KPI cards */}
           <div className="col-span-12">
-            <div className="grid grid-cols-12 gap-3">
-              {cards.map((c, idx) => {
-                const delta = c.delta;
-                const showDelta = typeof delta === "number" && Number.isFinite(delta);
-                const deltaDir = showDelta ? (delta > 0 ? "up" : delta < 0 ? "down" : "flat") : "flat";
-                const deltaText = showDelta ? `${Math.abs(clampPct(delta)).toFixed(0)}% vs last month` : "—";
-                const deltaTone =
-                  deltaDir === "up"
-                    ? c.key === "expense"
-                      ? "text-rose-300"
-                      : "text-emerald-300"
-                    : deltaDir === "down"
-                      ? c.key === "expense"
-                        ? "text-emerald-300"
-                        : "text-rose-300"
-                      : "text-slate-400";
-
-                return (
-                  <motion.div
-                    key={c.key}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.04 }}
-                    whileHover={{ y: -2 }}
-                    className="col-span-12 sm:col-span-6 lg:col-span-3 xl:col-span-2 rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-xl shadow-sm shadow-black/30 overflow-hidden"
-                  >
-                    <div className={`p-3 bg-gradient-to-br ${c.accent}`}>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className="h-9 w-9 rounded-xl bg-slate-800/70 border border-white/10 flex items-center justify-center text-slate-100">
-                            {c.icon}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="text-[11px] uppercase tracking-wide text-slate-400">
-                              {c.label}
-                            </div>
-                            {loading ? (
-                              <Skeleton variant="text" sx={{ fontSize: "1.3rem", width: 140 }} />
-                            ) : (
-                              <div className="text-lg font-semibold text-slate-50 truncate">
-                                {c.value}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className={`text-[11px] ${deltaTone}`}>
-                            {showDelta ? (deltaDir === "up" ? "▲" : deltaDir === "down" ? "▼" : "•") : "•"}{" "}
-                            {deltaText}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
+            <div className="grid grid-cols-12 gap-4">
+              {cards.map((c, idx) => (
+                <StatCard 
+                  key={c.key}
+                  title={c.label}
+                  value={c.value}
+                  icon={c.icon}
+                  accent={c.key === 'expense' ? 'rose' : c.key === 'income' ? 'emerald' : c.key === 'savings' ? 'indigo' : c.key === 'budget' && c.tone === 'negative' ? 'rose' : c.key === 'budget' ? 'amber' : 'sky'}
+                  delta={c.delta}
+                  loading={loading}
+                  delayIndex={idx}
+                />
+              ))}
             </div>
           </div>
 
           {/* Charts row */}
-          <section className="col-span-12 lg:col-span-8 rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-xl shadow-sm shadow-black/30 overflow-hidden">
-            <div className="p-4 pb-2 flex items-center justify-between">
-              <div>
-                <div className="text-sm font-semibold text-slate-100">Monthly spending trend</div>
-                <div className="text-xs text-slate-400">Last 6 months</div>
-              </div>
-            </div>
-            <div className="px-3 pb-3 h-[240px]">
+          <ChartCard 
+            title="Monthly Spending Trend" 
+            subtitle="Last 6 months trailing analysis"
+            delayIndex={4}
+          >
+            <div className="w-full h-[300px]">
               {spendingTrendData ? (
                 <Line
                   data={spendingTrendData}
@@ -436,92 +401,98 @@ const DashboardPage = () => {
                     maintainAspectRatio: false,
                     plugins: {
                       legend: { display: false },
-                      tooltip: { enabled: true },
+                      tooltip: { enabled: true, mode: 'index', intersect: false },
                     },
                     scales: {
-                      x: { ticks: { color: "#9ca3af" }, grid: { display: false } },
-                      y: { ticks: { color: "#9ca3af" }, grid: { color: "rgba(55,65,81,0.35)" } },
+                      x: { ticks: { color: "#64748b", font: { weight: 'bold' } }, grid: { display: false } },
+                      y: { ticks: { color: "#64748b", font: { weight: 'bold' } }, grid: { color: "rgba(0,0,0,0.05)" } },
                     },
+                    interaction: { mode: 'nearest', axis: 'x', intersect: false }
                   }}
                 />
               ) : (
-                <Skeleton variant="rounded" height={240} />
+                <Skeleton variant="rounded" height="100%" sx={{ bgcolor: 'rgba(255,255,255,0.05)' }} />
               )}
             </div>
-          </section>
+          </ChartCard>
 
-          <aside className="col-span-12 lg:col-span-4 rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-xl shadow-sm shadow-black/30 overflow-hidden">
-            <div className="p-4 pb-2">
-              <div className="text-sm font-semibold text-slate-100">Category breakdown</div>
-              <div className="text-xs text-slate-400">Top categories</div>
-            </div>
-            <div className="px-3 pb-3 h-[240px]">
-              {categoryPieData ? (
-                <Pie
-                  data={categoryPieData}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                      legend: {
-                        position: "bottom",
-                        labels: { color: "#cbd5f5", boxWidth: 10, padding: 10 },
+          <aside className="col-span-12 lg:col-span-4 flex flex-col gap-4">
+            <ChartCard 
+              title="Distribution" 
+              subtitle="Top categories"
+              delayIndex={5}
+            >
+              <div className="w-full h-[300px] flex items-center justify-center">
+                {categoryPieData ? (
+                  <Pie
+                    data={categoryPieData}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: {
+                          position: "bottom",
+                          labels: { color: "#475569", boxWidth: 10, padding: 20, font: { family: 'inherit', weight: 'bold', size: 11 } },
+                        },
                       },
-                    },
-                  }}
-                />
-              ) : (
-                <Skeleton variant="rounded" height={240} />
-              )}
-            </div>
+                      cutout: '65%'
+                    }}
+                  />
+                ) : (
+                  <Skeleton variant="circular" width={240} height={240} sx={{ bgcolor: 'rgba(255,255,255,0.05)' }} />
+                )}
+              </div>
+            </ChartCard>
           </aside>
 
           {/* Bottom row */}
-          <section className="col-span-12 lg:col-span-8 rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-xl shadow-sm shadow-black/30 overflow-hidden">
-            <div className="p-4 flex items-center justify-between">
+          <section className="col-span-12 lg:col-span-8 glass-card overflow-hidden">
+            <div className="p-8 border-b border-border dark:border-white/5 bg-gray-50/50 dark:bg-transparent flex items-center justify-between">
               <div>
-                <div className="text-sm font-semibold text-slate-100">Recent transactions</div>
-                <div className="text-xs text-slate-400">Latest 5</div>
+                <h3 className="text-xl font-black text-textHeadings dark:text-slate-50 tracking-tight uppercase">Recent Activity</h3>
+                <p className="text-[10px] font-black tracking-widest text-textMuted dark:text-slate-500 uppercase mt-1">Transaction History</p>
               </div>
               <button
-                onClick={() => navigate("/expenses")}
-                className="text-xs text-sky-300 hover:text-sky-200"
+                onClick={() => navigate("/transactions")}
+                className="btn-secondary !px-4 !py-2 !text-xs"
               >
-                View all
+                View All
               </button>
             </div>
-            <div className="px-4 pb-4">
+            <div className="px-5 py-2">
               {loading ? (
                 <Skeleton variant="rounded" height={180} />
               ) : recent.length === 0 ? (
-                <div className="text-sm text-slate-400">
-                  No transactions yet. Add your first expense or income.
+                <div className="text-sm text-slate-400 py-4">
+                  No transactions yet. Add your first transaction.
                 </div>
               ) : (
-                <ul className="divide-y divide-white/10">
+                <ul className="divide-y divide-border dark:divide-white/5">
                   {recent.map((t) => (
-                    <li key={t.id} className="py-2.5 flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
+                    <li key={t.id} className="py-4 hover:bg-gray-50/50 dark:hover:bg-white/[0.02] transition-colors -mx-5 px-5 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-4 min-w-0">
                         <div
-                          className={`h-9 w-9 rounded-xl flex items-center justify-center border border-white/10 ${
-                            t.type === "INCOME" ? "bg-emerald-500/10 text-emerald-300" : "bg-rose-500/10 text-rose-300"
+                          className={`h-11 w-11 rounded-full flex items-center justify-center border ${
+                            t.type === "INCOME" 
+                              ? "bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20" 
+                              : "bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20"
                           }`}
                         >
-                          <ReceiptIcon sx={{ fontSize: 18 }} />
+                          <ReceiptIcon fontSize="small" />
                         </div>
                         <div className="min-w-0">
-                          <div className="text-sm font-medium text-slate-100 truncate">{t.title}</div>
-                          <div className="text-xs text-slate-400 truncate">
-                            {t.categoryOrSource} • {new Date(t.date).toLocaleDateString()}
+                          <div className="text-base font-black text-textHeadings dark:text-slate-100 truncate uppercase tracking-tight">{t.description || t.category?.name || "Transaction"}</div>
+                          <div className="text-[10px] font-black text-textSecondary dark:text-slate-400 truncate mt-0.5 uppercase tracking-widest">
+                            {t.category?.name || "Uncategorized"} • {new Date(t.date).toLocaleDateString()}
                           </div>
                         </div>
                       </div>
                       <div
-                        className={`text-sm font-semibold whitespace-nowrap ${
-                          t.type === "INCOME" ? "text-emerald-300" : "text-rose-300"
+                        className={`text-lg font-black whitespace-nowrap ${
+                          t.type === "INCOME" ? "text-emerald-600 dark:text-emerald-400" : "text-textPrimary dark:text-slate-100"
                         }`}
                       >
-                        {t.type === "INCOME" ? "+" : "-"}{formatAmount(t.amount)}
+                        {t.type === "INCOME" ? "+" : "-"}{t.currency} {t.amount.toLocaleString()}
                       </div>
                     </li>
                   ))}
@@ -529,43 +500,47 @@ const DashboardPage = () => {
               )}
             </div>
           </section>
+          <aside className="col-span-12 lg:col-span-4 flex flex-col gap-4">
+            {/* Financial Health AI */}
+            <div className="flex-none">
+              <FinancialHealthCard />
+            </div>
 
-          <aside className="col-span-12 lg:col-span-4 flex flex-col gap-3">
             {/* Quick actions */}
-            <div className="rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-xl shadow-sm shadow-black/30 p-3">
-              <div className="text-sm font-semibold text-slate-100 mb-2">Quick actions</div>
-              <div className="grid grid-cols-2 gap-2">
-                <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={() => navigate("/expenses")}>
-                  Expense
-                </Button>
-                <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={() => navigate("/income")}>
-                  Income
-                </Button>
-                <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={() => navigate("/budget")}>
+            <div className="glass-card p-6">
+              <div className="text-sm font-black text-textHeadings dark:text-slate-100 mb-6 uppercase tracking-widest">Quick Actions</div>
+              <div className="grid grid-cols-2 gap-3">
+                <button className="btn-secondary" onClick={() => navigate("/transactions")}>
+                  Transaction
+                </button>
+                <button className="btn-secondary" onClick={() => navigate("/budget")}>
                   Budget
-                </Button>
-                <Button size="small" variant="outlined" startIcon={<FlagIcon />} onClick={() => navigate("/goals")}>
+                </button>
+                <button className="btn-secondary" onClick={() => navigate("/goals")}>
                   Goal
-                </Button>
+                </button>
+                <button className="btn-secondary" onClick={() => navigate("/insights")}>
+                  AI Insights
+                </button>
               </div>
             </div>
 
             {/* Goals preview */}
-            <div className="rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-xl shadow-sm shadow-black/30 p-3">
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-sm font-semibold text-slate-100">Goals</div>
-                <button onClick={() => navigate("/goals")} className="text-xs text-sky-300 hover:text-sky-200">
+            <div className="glass-card p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="text-sm font-black text-textHeadings dark:text-slate-100 uppercase tracking-widest">Savings Goals</div>
+                <button onClick={() => navigate("/budget")} className="text-sm font-bold text-primary-600 hover:text-primary-700">
                   View
                 </button>
               </div>
               {loading ? (
                 <Skeleton variant="rounded" height={120} />
               ) : goals.length === 0 ? (
-                <div className="text-xs text-slate-400">
-                  No goals yet. Add a goal to track your savings progress.
+                <div className="text-sm text-slate-400 py-2">
+                  No active goals. Set one up to motivate your savings.
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {goals.slice(0, 3).map((g) => {
                     const target = Number(g.targetAmount || 0);
                     const current = Number(g.currentAmount || 0);
@@ -574,18 +549,18 @@ const DashboardPage = () => {
                       <div key={g.id}>
                         <div className="flex items-center justify-between text-xs">
                           <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-base">{g.icon || "🎯"}</span>
-                            <span className="text-slate-200 truncate">{g.name}</span>
+                            <span className="text-lg">{g.icon || "🎯"}</span>
+                            <span className="text-textHeadings dark:text-slate-200 font-black truncate uppercase tracking-tight">{g.name}</span>
                           </div>
-                          <span className="text-slate-400">{pct.toFixed(0)}%</span>
+                          <span className="text-primary-600 dark:text-primary-400 font-black">{pct.toFixed(0)}%</span>
                         </div>
-                        <div className="mt-1.5 h-2 w-full rounded-full bg-slate-800 overflow-hidden">
+                        <div className="mt-2 h-2.5 w-full rounded-full bg-gray-100 dark:bg-slate-950 border border-border dark:border-white/5 overflow-hidden">
                           <div
-                            className="h-full rounded-full bg-gradient-to-r from-sky-500 to-emerald-400"
+                            className="h-full rounded-full bg-primary-600 relative"
                             style={{ width: `${pct}%` }}
                           />
                         </div>
-                        <div className="mt-1 text-[11px] text-slate-400">
+                        <div className="mt-2 text-[10px] text-textMuted dark:text-slate-400 font-black uppercase tracking-widest">
                           {formatAmount(current)} / {formatAmount(target)}
                         </div>
                       </div>
@@ -596,12 +571,14 @@ const DashboardPage = () => {
             </div>
 
             {/* Smart insights */}
-            <div className="rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-xl shadow-sm shadow-black/30 p-3">
-              <div className="text-sm font-semibold text-slate-100 mb-2">Smart insights</div>
-              <ul className="space-y-2">
+            <div className="glass-card p-6 border-l-4 border-l-primary-600 bg-primary-50/30 dark:bg-primary-500/5">
+              <div className="text-sm font-black text-textHeadings dark:text-slate-100 mb-4 flex items-center gap-2 uppercase tracking-widest">
+                <span className="text-primary-600 dark:text-primary-400">✨</span> Quick Tip
+              </div>
+              <ul className="space-y-3">
                 {insights.map((ins, idx) => (
-                  <li key={idx} className="text-xs text-slate-300 leading-snug">
-                    • {ins}
+                  <li key={idx} className="text-xs text-textSecondary dark:text-slate-300 font-black leading-relaxed uppercase tracking-tight">
+                    {ins}
                   </li>
                 ))}
               </ul>

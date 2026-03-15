@@ -1,11 +1,10 @@
 package com.financetracker.backend.service.impl;
 
 import com.financetracker.backend.dto.DashboardDto;
-import com.financetracker.backend.entity.Expense;
-import com.financetracker.backend.entity.Income;
+import com.financetracker.backend.entity.Transaction;
+import com.financetracker.backend.entity.TransactionType;
 import com.financetracker.backend.entity.User;
-import com.financetracker.backend.repository.ExpenseRepository;
-import com.financetracker.backend.repository.IncomeRepository;
+import com.financetracker.backend.repository.TransactionRepository;
 import com.financetracker.backend.service.DashboardService;
 import com.financetracker.backend.service.UserService;
 import org.springframework.stereotype.Service;
@@ -19,30 +18,38 @@ import java.util.stream.Collectors;
 @Service
 public class DashboardServiceImpl implements DashboardService {
 
-    private final IncomeRepository incomeRepository;
-    private final ExpenseRepository expenseRepository;
+    private final TransactionRepository transactionRepository;
     private final UserService userService;
 
-    public DashboardServiceImpl(IncomeRepository incomeRepository,
-                                ExpenseRepository expenseRepository,
+    public DashboardServiceImpl(TransactionRepository transactionRepository,
                                 UserService userService) {
-        this.incomeRepository = incomeRepository;
-        this.expenseRepository = expenseRepository;
+        this.transactionRepository = transactionRepository;
         this.userService = userService;
     }
 
     @Override
-    public DashboardDto getDashboardSummary() {
+    public DashboardDto getDashboardSummary(Long accountId) {
         User user = userService.getCurrentUserEntity();
 
-        List<Income> incomes = incomeRepository.findByUser(user);
-        List<Expense> expenses = expenseRepository.findByUser(user);
+        List<Transaction> transactions;
+        if (accountId != null) {
+            transactions = transactionRepository.findByUserIdAndAccountId(user.getId(), accountId);
+        } else {
+            transactions = transactionRepository.findByUserId(user.getId());
+        }
+
+        List<Transaction> incomes = transactions.stream()
+                .filter(t -> t.getType() == TransactionType.INCOME)
+                .collect(Collectors.toList());
+        List<Transaction> expenses = transactions.stream()
+                .filter(t -> t.getType() == TransactionType.EXPENSE)
+                .collect(Collectors.toList());
 
         BigDecimal totalIncome = incomes.stream()
-                .map(Income::getAmount)
+                .map(Transaction::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal totalExpense = expenses.stream()
-                .map(Expense::getAmount)
+                .map(Transaction::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal remaining = totalIncome.subtract(totalExpense);
@@ -50,7 +57,7 @@ public class DashboardServiceImpl implements DashboardService {
         Map<String, BigDecimal> monthlySummary = incomes.stream()
                 .collect(Collectors.groupingBy(
                         i -> YearMonth.from(i.getDate()).toString(),
-                        Collectors.mapping(Income::getAmount,
+                        Collectors.mapping(Transaction::getAmount,
                                 Collectors.reducing(BigDecimal.ZERO, BigDecimal::add)
                         )
                 ));
@@ -58,7 +65,7 @@ public class DashboardServiceImpl implements DashboardService {
         Map<String, BigDecimal> monthlyExpenses = expenses.stream()
                 .collect(Collectors.groupingBy(
                         e -> YearMonth.from(e.getDate()).toString(),
-                        Collectors.mapping(Expense::getAmount,
+                        Collectors.mapping(Transaction::getAmount,
                                 Collectors.reducing(BigDecimal.ZERO, BigDecimal::add)
                         )
                 ));
@@ -76,4 +83,3 @@ public class DashboardServiceImpl implements DashboardService {
         return dto;
     }
 }
-

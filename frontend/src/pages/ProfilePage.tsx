@@ -1,16 +1,9 @@
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import api from "../services/api";
-import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
-import TextField from "@mui/material/TextField";
-import Button from "@mui/material/Button";
-import Typography from "@mui/material/Typography";
-import Skeleton from "@mui/material/Skeleton";
-import Box from "@mui/material/Box";
-import PersonIcon from "@mui/icons-material/Person";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
+import PersonIcon from "@mui/icons-material/Person";
 
 type Profile = {
   id: number;
@@ -48,7 +41,7 @@ const ProfilePage = () => {
     try {
       const res = await api.put<Profile>("/users/me", { id: profile.id, name, email });
       setProfile(res.data);
-      toast.success("Profile updated");
+      toast.success("Profile updated successfully!");
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       toast.error(msg || "Failed to update profile");
@@ -59,22 +52,18 @@ const ProfilePage = () => {
 
   if (loading) {
     return (
-      <Box>
-        <Typography variant="h5" fontWeight={600} gutterBottom>
-          Profile
-        </Typography>
-        <Skeleton variant="rounded" height={280} />
-      </Box>
+      <div className="space-y-6 max-w-2xl mx-auto animate-pulse">
+        <div className="h-10 w-48 bg-slate-800 rounded-lg"></div>
+        <div className="h-80 w-full glass-card"></div>
+      </div>
     );
   }
 
   if (!profile) {
     return (
-      <Card>
-        <CardContent>
-          <Typography color="text.secondary">Unable to load profile. Please try again.</Typography>
-        </CardContent>
-      </Card>
+      <div className="glass-card max-w-2xl mx-auto p-8 text-center">
+        <p className="text-slate-400">Unable to load profile. Please try again.</p>
+      </div>
     );
   }
 
@@ -83,55 +72,68 @@ const ProfilePage = () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
+      className="space-y-6 max-w-2xl mx-auto"
     >
-      <Box mb={3}>
-        <Typography variant="h5" fontWeight={600} gutterBottom>
-          Profile
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Manage your account details
-        </Typography>
-      </Box>
+      <div>
+        <h1 className="text-3xl font-bold flex items-center gap-3 text-gradient">
+          <span className="text-primary-500">⚙️</span> Profile Settings
+        </h1>
+        <p className="text-slate-400 text-sm mt-1">Manage your account details and personal info.</p>
+      </div>
 
-      <Card sx={{ maxWidth: 480 }}>
-        <CardContent>
-          <Box display="flex" alignItems="center" gap={1} mb={3}>
-            <PersonIcon color="primary" />
-            <Typography variant="subtitle1" fontWeight={600}>
-              Account info
-            </Typography>
-          </Box>
-          <form onSubmit={handleSubmit}>
-            <Box display="flex" flexDirection="column" gap={2}>
-              <TextField
-                fullWidth
-                label="Name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                size="small"
-              />
-              <TextField
-                fullWidth
-                label="Email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                size="small"
-              />
-              <Button
-                type="submit"
-                variant="contained"
-                disabled={saving}
-                sx={{ alignSelf: "flex-start", mt: 1 }}
-              >
-                {saving ? "Saving..." : "Save changes"}
-              </Button>
-            </Box>
-          </form>
-        </CardContent>
-      </Card>
+      <div className="glass-card p-6 sm:p-8">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="h-12 w-12 rounded-full bg-primary-500/10 flex items-center justify-center text-primary-400 border border-primary-500/20 shadow-lg shadow-primary-500/10">
+            <PersonIcon />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-slate-100">Account info</h2>
+            <p className="text-xs text-slate-400">Update your public name and login email.</p>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Full Name</label>
+            <input
+              className="input-field"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              placeholder="John Doe"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Email Address</label>
+            <input
+              className="input-field"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              placeholder="john@example.com"
+            />
+          </div>
+
+          <div className="pt-4">
+            <button
+              type="submit"
+              disabled={saving}
+              className="btn-primary w-full sm:w-auto mt-2"
+            >
+              {saving ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                  Saving Context...
+                </span>
+              ) : (
+                "Save Changes"
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
     </motion.div>
   );
 };
