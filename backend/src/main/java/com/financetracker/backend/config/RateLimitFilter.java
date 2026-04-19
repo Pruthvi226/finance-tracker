@@ -2,7 +2,6 @@ package com.financetracker.backend.config;
 
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
-import io.github.bucket4j.Refill;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,14 +21,22 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private final Map<String, Bucket> cache = new ConcurrentHashMap<>();
 
     private Bucket createNewBucket() {
-        // Limit: 100 requests per 1 minute per IP
-        Bandwidth limit = Bandwidth.classic(100, Refill.greedy(100, Duration.ofMinutes(1)));
-        return Bucket.builder().addLimit(limit).build();
+        return Bucket.builder()
+                .addLimit(Bandwidth.builder()
+                        .capacity(100)
+                        .refillGreedy(100, Duration.ofMinutes(1))
+                        .build())
+                .build();
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
+
+        if (request.getMethod().equalsIgnoreCase("OPTIONS")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         String ip = request.getRemoteAddr();
         Bucket bucket = cache.computeIfAbsent(ip, k -> createNewBucket());
@@ -38,7 +45,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
         } else {
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
-            response.getWriter().write("Too many requests. Please try again later.");
+            response.setContentType("application/json");
+            response.getWriter().write("{\"message\": \"Whoa there! You're moving a bit too fast. Please take a short break and try again in a moment.\"}");
         }
     }
 }

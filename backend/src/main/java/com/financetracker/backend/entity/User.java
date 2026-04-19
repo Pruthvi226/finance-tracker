@@ -1,9 +1,12 @@
 package com.financetracker.backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.time.Instant;
 
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Entity
 @Table(name = "users")
 public class User {
@@ -18,6 +21,7 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
+    @JsonIgnore
     @Column(nullable = false)
     private String password;
 
@@ -26,6 +30,10 @@ public class User {
 
     @Column(name = "base_currency", nullable = false, length = 3)
     private String baseCurrency = "USD";
+
+    @JsonIgnore
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private UserSettings settings;
 
     public User() {
     }
@@ -90,5 +98,13 @@ public class User {
 
     public void setBaseCurrency(String baseCurrency) {
         this.baseCurrency = baseCurrency;
+    }
+
+    public UserSettings getSettings() {
+        return settings;
+    }
+
+    public void setSettings(UserSettings settings) {
+        this.settings = settings;
     }
 }

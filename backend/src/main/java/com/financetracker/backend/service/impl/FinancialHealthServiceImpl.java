@@ -17,6 +17,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
@@ -48,6 +49,7 @@ public class FinancialHealthServiceImpl implements FinancialHealthService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public FinancialHealthDto calculateFinancialHealth() {
         User user = userService.getCurrentUserEntity();
         
@@ -72,7 +74,7 @@ public class FinancialHealthServiceImpl implements FinancialHealthService {
         }
 
         // 2. Budget Compliance
-        boolean budgetExceeded = budgetService.isBudgetExceeded();
+        boolean budgetExceeded = budgetService.isBudgetExceeded(user.getId());
         
         // 3. Goal Progress Avg
         List<FinancialGoal> goals = financialGoalRepository.findByUserId(user.getId());

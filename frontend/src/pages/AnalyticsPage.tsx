@@ -1,52 +1,25 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../services/api";
-import { motion, AnimatePresence } from "framer-motion";
-import { Bar, Line, Pie } from "react-chartjs-2";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  PointElement,
-  LineElement,
-  ArcElement,
-  Tooltip,
-  Legend,
-  Filler,
-} from "chart.js";
 import { 
-  TrendingUp, 
-  Layers, 
+  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer 
+} from "recharts";
+import { 
   PiggyBank, 
-  BarChart3,
-  Download,
-  Calendar,
   Activity,
   ArrowUpRight,
   ArrowDownRight,
-  TrendingDown,
   Sparkles,
-  Search
+  Zap,
+  Globe,
+  PieChart as PieIcon,
+  Calendar
 } from "lucide-react";
 import { ActivityHeatmap } from "../components/Analytics/ActivityHeatmap";
 import { AnimatedCounter } from "../components/AnimatedCounter";
 import { PremiumCard } from "../components/ui/PremiumCard";
-import { PremiumButton } from "../components/ui/PremiumButton";
 import { PremiumBadge } from "../components/ui/PremiumBadge";
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  PointElement,
-  LineElement,
-  ArcElement,
-  Tooltip,
-  Legend,
-  Filler
-);
-
-type Analytics = {
+type Insights = {
   categorySpending: Record<string, number>;
   monthlyExpenses: Record<string, number>;
   monthlyIncome: Record<string, number>;
@@ -74,8 +47,19 @@ const filterByRange = (entries: readonly (readonly [string, number])[], range: R
   return sorted.slice(-count);
 };
 
+const formatMonth = (ym: string) => {
+  const [y, m] = ym.split("-").map((x) => Number(x));
+  if (!y || !m) return ym;
+  const d = new Date(y, m - 1, 1);
+  return d.toLocaleString(undefined, { month: "short" }).toUpperCase();
+};
+
+const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#f43f5e", "#8b5cf6", "#06b6d4", "#ec4899"];
+
+import toast from "react-hot-toast";
+
 const AnalyticsPage = () => {
-  const [data, setData] = useState<Analytics | null>(null);
+  const [data, setData] = useState<Insights | null>(null);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<RangeKey>("6m");
 
@@ -83,8 +67,10 @@ const AnalyticsPage = () => {
     const load = async () => {
       try {
         setLoading(true);
-        const res = await api.get<Analytics>("/analytics");
+        const res = await api.get<Insights>("/analytics");
         setData(res.data);
+      } catch (err: any) {
+        toast.error(err.message || "Failed to load analytics");
       } finally {
         setLoading(false);
       }
@@ -94,7 +80,7 @@ const AnalyticsPage = () => {
 
   const categoryEntries = useMemo(() => {
     if (!data?.categorySpending || typeof data.categorySpending !== "object") return [];
-    return Object.entries(data.categorySpending).map(([k, v]) => [k, toNum(v)] as const);
+    return Object.entries(data.categorySpending).map(([k, v]) => ({ name: k.toUpperCase(), value: toNum(v) }));
   }, [data]);
 
   const allMonthlyExpEntries = useMemo(() => {
@@ -111,170 +97,38 @@ const AnalyticsPage = () => {
       .sort((a, b) => a[0].localeCompare(b[0]));
   }, [data]);
 
-  const monthlyExpEntries = useMemo(
-    () => filterByRange(allMonthlyExpEntries, range),
-    [allMonthlyExpEntries, range]
-  );
+  const filteredExp = useMemo(() => filterByRange(allMonthlyExpEntries, range), [allMonthlyExpEntries, range]);
+  const filteredInc = useMemo(() => filterByRange(allMonthlyIncEntries, range), [allMonthlyIncEntries, range]);
 
-  const monthlyIncEntries = useMemo(
-    () => filterByRange(allMonthlyIncEntries, range),
-    [allMonthlyIncEntries, range]
-  );
+  const trendData = useMemo(() => {
+    const months = Array.from(new Set([...filteredExp.map(([m]) => m), ...filteredInc.map(([m]) => m)])).sort();
+    const incMap = Object.fromEntries(filteredInc);
+    const expMap = Object.fromEntries(filteredExp);
 
-  const mostExpensiveCategory = useMemo(() => {
-    if (categoryEntries.length === 0) return null;
-    return categoryEntries.reduce((a, b) => (a[1] >= b[1] ? a : b));
-  }, [categoryEntries]);
-
-  const incomeVsExpenseData = useMemo(() => {
-    const months = Array.from(
-      new Set([
-        ...monthlyExpEntries.map(([m]) => m),
-        ...monthlyIncEntries.map(([m]) => m),
-      ])
-    ).sort();
-
-    if (months.length === 0) return null;
-
-    const incMap = Object.fromEntries(monthlyIncEntries);
-    const expMap = Object.fromEntries(monthlyExpEntries);
-
-    return {
-      labels: months,
-      datasets: [
-        {
-          label: "Gross Income",
-          data: months.map((m) => incMap[m] ?? 0),
-          backgroundColor: "#10b981", // emerald-500
-          borderRadius: 8,
-          barThickness: 24,
-        },
-        {
-          label: "Total Expenses",
-          data: months.map((m) => expMap[m] ?? 0),
-          backgroundColor: "#f43f5e", // rose-500
-          borderRadius: 8,
-          barThickness: 24,
-        },
-      ],
-    };
-  }, [monthlyExpEntries, monthlyIncEntries]);
+    return months.map(m => ({
+      month: formatMonth(m),
+      income: incMap[m] || 0,
+      spending: expMap[m] || 0,
+    }));
+  }, [filteredExp, filteredInc]);
 
   const savingsRates = useMemo(() => {
-    const rates: { month: string; rate: number }[] = [];
-    const incMap = Object.fromEntries(monthlyIncEntries);
-    const expMap = Object.fromEntries(monthlyExpEntries);
-    const months = Array.from(
-      new Set([...Object.keys(incMap), ...Object.keys(expMap)])
-    ).sort();
+    return trendData.map(d => ({
+      month: d.month,
+      rate: d.income > 0 ? Math.max(0, ((d.income - d.spending) / d.income) * 100) : 0
+    }));
+  }, [trendData]);
 
-    for (const m of months) {
-      const inc = toNum(incMap[m]);
-      const exp = toNum(expMap[m]);
-      const rate = inc > 0 ? Math.max(0, ((inc - exp) / inc) * 100) : 0;
-      rates.push({ month: m, rate });
-    }
-    return rates;
-  }, [monthlyIncEntries, monthlyExpEntries]);
-
-  const spendingTrendData = useMemo(() => {
-    if (monthlyExpEntries.length === 0) return null;
-    return {
-      labels: monthlyExpEntries.map(([m]) => m),
-      datasets: [
-        {
-          label: "Spending Velocity",
-          data: monthlyExpEntries.map(([, v]) => v),
-          borderColor: "#6366f1",
-          backgroundColor: "rgba(99, 102, 241, 0.1)",
-          fill: true,
-          tension: 0.5,
-          pointBackgroundColor: "#6366f1",
-          pointRadius: 6,
-          pointHoverRadius: 8,
-          borderWidth: 4,
-        },
-      ],
-    };
-  }, [monthlyExpEntries]);
-
-  const categoryPieData = useMemo(() => {
-    if (categoryEntries.length === 0) return null;
-    return {
-      labels: categoryEntries.map(([n]) => n),
-      datasets: [
-        {
-          data: categoryEntries.map(([, v]) => v),
-          backgroundColor: [
-            "#6366f1",
-            "#10b981",
-            "#f59e0b",
-            "#ef4444",
-            "#8b5cf6",
-            "#ec4899",
-          ],
-          borderWidth: 0,
-          hoverOffset: 20
-        },
-      ],
-    };
-  }, [categoryEntries]);
-
-  const avgSavingsRate =
-    savingsRates.length > 0
-      ? savingsRates.reduce((s, r) => s + r.rate, 0) / savingsRates.length
-      : 0;
-
-  const latestMonth = monthlyExpEntries.length
-    ? monthlyExpEntries[monthlyExpEntries.length - 1][0]
-    : null;
-  const latestIncome = latestMonth
-    ? allMonthlyIncEntries.find(([m]) => m === latestMonth)?.[1] ?? 0
-    : 0;
-  const latestExpense = latestMonth
-    ? allMonthlyExpEntries.find(([m]) => m === latestMonth)?.[1] ?? 0
-    : 0;
-  
+  const avgSavingsRate = savingsRates.length > 0 ? savingsRates.reduce((s, r) => s + r.rate, 0) / savingsRates.length : 0;
   const healthScore = Math.round(Math.max(0, Math.min(100, avgSavingsRate)));
 
-  const cumulativeSavingsData = useMemo(() => {
-    if (savingsRates.length === 0) return null;
-    let balance = 0;
-    const history = [];
-    
-    // Sort chronologically ascending
-    const sortedRates = [...savingsRates].sort((a,b) => a.month.localeCompare(b.month));
-    const incMap = Object.fromEntries(monthlyIncEntries);
-    const expMap = Object.fromEntries(monthlyExpEntries);
-
-    for (const { month } of sortedRates) {
-      const saved = (toNum(incMap[month]) - toNum(expMap[month]));
-      balance += saved;
-      history.push({ month, balance });
-    }
-
-    return {
-      labels: history.map(h => h.month),
-      datasets: [
-        {
-          label: "Cumulative Wealth Growth",
-          data: history.map(h => h.balance),
-          borderColor: "#10b981",
-          backgroundColor: "rgba(16, 185, 129, 0.1)",
-          fill: true,
-          tension: 0.5,
-          borderWidth: 4,
-          pointRadius: 0,
-        }
-      ]
-    };
-  }, [savingsRates, monthlyIncEntries, monthlyExpEntries]);
+  const latest = trendData[trendData.length - 1] || { month: "N/A", income: 0, spending: 0 };
 
   const heatmapData = useMemo(() => {
     const today = new Date();
     today.setHours(0,0,0,0);
     const result = [];
-    const monthlyAverages = Object.fromEntries(monthlyExpEntries.map(([m,v]) => [m, v/30]));
+    const monthlyAverages = Object.fromEntries(filteredExp.map(([m,v]) => [m, v/30]));
     
     for (let i = 0; i < 90; i++) {
         const d = new Date(today);
@@ -287,80 +141,39 @@ const AnalyticsPage = () => {
         result.push({ date: isoDate, amount });
     }
     return result.reverse();
-  }, [monthlyExpEntries]);
-
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { 
-        position: "top" as const, 
-        labels: { 
-          color: "#94a3b8", 
-          font: { weight: 'bold', size: 10 },
-          usePointStyle: true,
-          padding: 20
-        } 
-      },
-      tooltip: {
-        backgroundColor: '#1e293b',
-        titleFont: { size: 13, weight: 'bold' },
-        bodyFont: { size: 12 },
-        padding: 12,
-        cornerRadius: 12,
-        displayColors: true,
-      }
-    },
-    scales: {
-      x: {
-        ticks: { color: "#94a3b8", font: { size: 10, weight: 'bold' } },
-        grid: { display: false },
-        border: { display: false }
-      },
-      y: {
-        ticks: { 
-          color: "#94a3b8", 
-          font: { size: 10, weight: 'bold' },
-          callback: (value: any) => '₹' + value.toLocaleString()
-        },
-        grid: { color: "rgba(148,163,184,0.05)" },
-        border: { display: false }
-      },
-    },
-  };
+  }, [filteredExp]);
 
   return (
-    <div className="flex flex-col gap-8 pb-12">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+    <div className="flex flex-col gap-10 pb-20">
+      {/* Precision Header */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-10">
         <div>
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-[32px] font-black tracking-tight text-textHeadings dark:text-white leading-none">
-              Financial Intelligence
-            </h1>
-            <PremiumBadge color="indigo">
-              AI-Powered
-            </PremiumBadge>
+          <div className="flex items-center gap-4 mb-3">
+             <div className="h-0.5 w-10 bg-indigo-500 rounded-full" />
+             <PremiumBadge color="indigo" variant="neon">NETWORK ANALYTICS</PremiumBadge>
           </div>
-          <p className="text-[14px] font-medium text-textSecondary dark:text-slate-400">
-            Deep forensic analysis of your spending behavior and wealth velocity.
+          <h1 className="text-[54px] font-black tracking-tighter text-slate-900 dark:text-white leading-[0.85] mb-4">
+            Financial Intelligence
+          </h1>
+          <p className="text-[14px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+            Real-time Meta-Data <span className="h-1 w-1 bg-slate-300 dark:bg-slate-700 rounded-full" /> Temporal Auditing Synchronized
           </p>
         </div>
 
-        <div className="flex items-center gap-3 bg-gray-50 dark:bg-white/5 p-1 rounded-2xl border border-gray-100 dark:border-white/10">
+        <div className="flex items-center gap-4 p-1.5 bg-slate-100 dark:bg-white/5 rounded-3xl border border-slate-200 dark:border-white/5 shadow-inner">
           {[
             { id: "3m", label: "3M" },
             { id: "6m", label: "6M" },
             { id: "ytd", label: "YTD" },
-            { id: "all", label: "All" },
+            { id: "all", label: "MAX" },
           ].map((opt) => (
             <button
               key={opt.id}
               onClick={() => setRange(opt.id as RangeKey)}
-              className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${
+              className={`px-6 py-3.5 rounded-[20px] text-[11px] font-black uppercase tracking-widest transition-all ${
                 range === opt.id
-                  ? "bg-white dark:bg-white/10 text-primary-600 dark:text-white shadow-sm"
-                  : "text-textMuted hover:text-textPrimary"
+                  ? "bg-white dark:bg-indigo-600 text-indigo-600 dark:text-white shadow-lg shadow-indigo-500/10"
+                  : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               {opt.label}
@@ -370,187 +183,256 @@ const AnalyticsPage = () => {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[1,2,3,4].map(i => <div key={i} className="h-32 rounded-[24px] bg-gray-100 dark:bg-white/5 animate-pulse" />)}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+           {[1,2,3,4].map(i => <div key={i} className="h-32 rounded-[32px] bg-slate-100 dark:bg-white/5 animate-pulse" />)}
         </div>
       ) : (
-        <>
-          {/* KPI Mini Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <PremiumCard variant="white" className="!p-6 flex flex-col justify-between">
-              <div className="flex items-center justify-between mb-4">
-                <div className="h-10 w-10 rounded-xl bg-primary-50 text-primary-600 flex items-center justify-center border border-primary-100">
-                  <Layers size={20} />
-                </div>
-                <PremiumBadge color="gray">Top Category</PremiumBadge>
+        <div className="grid grid-cols-12 gap-8">
+          {/* KPI Matrix */}
+          <div className="col-span-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <PremiumCard variant="white" className="!p-8 flex flex-col justify-between group">
+              <div className="flex items-center justify-between mb-2">
+                 <div className="h-11 w-11 rounded-2xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center border border-indigo-500/20 group-hover:rotate-12 transition-transform">
+                   <Globe size={22} strokeWidth={2.5} />
+                 </div>
+                 <PremiumBadge color="indigo" variant="neon">DOMAIN</PremiumBadge>
               </div>
               <div>
-                 <p className="text-[10px] font-black uppercase tracking-widest text-textMuted mb-1">Max Attribution</p>
-                 <h3 className="text-xl font-black text-textHeadings truncate uppercase tracking-tight">{mostExpensiveCategory?.[0] ?? "N/A"}</h3>
+                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mb-2">TOP SECTOR</p>
+                 <h3 className="text-[20px] font-black text-slate-900 dark:text-white truncate uppercase tracking-tight">{(categoryEntries[0]?.name || "N/A").split(' ')[0]}</h3>
               </div>
             </PremiumCard>
 
-            <PremiumCard variant="white" className="!p-6 flex flex-col justify-between">
-              <div className="flex items-center justify-between mb-4">
-                <div className="h-10 w-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
-                  <PiggyBank size={20} />
-                </div>
-                <PremiumBadge color="emerald">Efficiency</PremiumBadge>
+            <PremiumCard variant="white" className="!p-8 flex flex-col justify-between group">
+              <div className="flex items-center justify-between mb-2">
+                 <div className="h-11 w-11 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center border border-emerald-500/20 group-hover:scale-110 transition-transform">
+                   <PiggyBank size={22} strokeWidth={2.5} />
+                 </div>
+                 <PremiumBadge color="emerald" variant="neon">EFFICIENCY</PremiumBadge>
               </div>
               <div>
-                 <p className="text-[10px] font-black uppercase tracking-widest text-textMuted mb-1">Savings Velocity</p>
-                 <h3 className="text-2xl font-black text-emerald-600 tracking-tighter">
+                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mb-2">SAVINGS RATE</p>
+                 <h3 className="text-3xl font-black text-emerald-500 tracking-tighter">
                     <AnimatedCounter value={avgSavingsRate} decimals={1} />%
                  </h3>
               </div>
             </PremiumCard>
 
-            <PremiumCard variant="white" className="!p-6 flex flex-col justify-between">
-              <div className="flex items-center justify-between mb-4">
-                <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100">
-                  <Activity size={20} />
-                </div>
-                <PremiumBadge color="indigo">Eco-Score</PremiumBadge>
+            <PremiumCard variant="white" className="!p-8 flex flex-col justify-between group border-none glow bg-indigo-600">
+               <div className="flex items-center justify-between mb-2">
+                 <div className="h-11 w-11 rounded-2xl bg-white/20 text-white flex items-center justify-center border border-white/20">
+                   <Activity size={22} strokeWidth={3} />
+                 </div>
+                 <PremiumBadge color="indigo" variant="neon">VITALITY</PremiumBadge>
               </div>
               <div>
-                 <p className="text-[10px] font-black uppercase tracking-widest text-textMuted mb-1">Wealth Health</p>
-                 <h3 className="text-2xl font-black text-textHeadings tracking-tighter">
+                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/60 mb-2">HEALTH MAGNITUDE</p>
+                 <h3 className="text-3xl font-black text-white tracking-tighter">
                    <AnimatedCounter value={healthScore} decimals={0} />
-                   <span className="text-textMuted text-sm font-bold ml-1">/100</span>
+                   <span className="text-white/40 text-[14px] font-bold ml-2">/100</span>
                  </h3>
               </div>
             </PremiumCard>
 
-            <PremiumCard variant="white" className="!p-6 flex flex-col justify-between">
-              <div className="flex items-center justify-between mb-4">
-                <div className="h-10 w-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100">
-                  <TrendingUp size={20} />
-                </div>
-                <PremiumBadge color="rose">Recent Phase</PremiumBadge>
+            <PremiumCard variant="white" className="!p-8 flex flex-col justify-between group">
+              <div className="flex items-center justify-between mb-2">
+                 <div className="h-11 w-11 rounded-2xl bg-slate-100 dark:bg-white/5 text-slate-500 flex items-center justify-center border border-slate-200 dark:border-white/5">
+                   <Calendar size={22} strokeWidth={2.5} />
+                 </div>
+                 <PremiumBadge color="gray">LATEST CYCLE</PremiumBadge>
               </div>
               <div>
-                 <p className="text-[10px] font-black uppercase tracking-widest text-textMuted mb-1">{latestMonth ?? 'Current'}</p>
-                 <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1 text-[13px] font-black text-emerald-600">
-                       <ArrowUpRight size={14} /> ₹<AnimatedCounter value={latestIncome} decimals={0} />
+                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mb-2">TERM: {latest.month}</p>
+                 <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-1.5 text-[14px] font-black text-emerald-500">
+                       <ArrowUpRight size={14} strokeWidth={3} /> ₹<AnimatedCounter value={latest.income} decimals={0} />
                     </div>
-                    <div className="flex items-center gap-1 text-[13px] font-black text-rose-600">
-                       <ArrowDownRight size={14} /> ₹<AnimatedCounter value={latestExpense} decimals={0} />
+                    <div className="flex items-center gap-1.5 text-[14px] font-black text-rose-500">
+                       <ArrowDownRight size={14} strokeWidth={3} /> ₹<AnimatedCounter value={latest.spending} decimals={0} />
                     </div>
                  </div>
               </div>
             </PremiumCard>
           </div>
 
-          {/* Core Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            <PremiumCard variant="white" className="lg:col-span-8 !p-8 h-[450px] flex flex-col">
-               <div className="flex items-center justify-between mb-8">
+          {/* Core Analytics Visuals */}
+          <div className="col-span-12 grid grid-cols-1 LG:grid-cols-12 gap-8">
+            
+            {/* Primary Flow Analysis */}
+            <PremiumCard variant="obsidian" className="lg:col-span-8 !p-0 overflow-hidden shadow-2xl">
+               <div className="p-10 border-b border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-8">
                   <div>
-                    <h3 className="text-lg font-black text-textHeadings uppercase tracking-tight">Spending vs Income</h3>
-                    <p className="text-xs font-bold text-textMuted uppercase tracking-widest">Monthly comparative ledger</p>
+                    <h3 className="text-3xl font-black text-white tracking-tighter uppercase leading-none">Capital Vectors</h3>
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mt-3">Income vs Expenditure Synchronization</p>
                   </div>
-                  <div className="flex items-center gap-4">
-                     <div className="flex items-center gap-2">
-                        <div className="h-3 w-3 rounded-full bg-emerald-500" />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-textMuted">Income</span>
+                  <div className="flex items-center gap-6 p-4 bg-white/5 rounded-2xl border border-white/5">
+                     <div className="flex items-center gap-3">
+                        <div className="h-2 w-10 bg-emerald-500 rounded-full" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">INFLOW</span>
                      </div>
-                     <div className="flex items-center gap-2">
-                        <div className="h-3 w-3 rounded-full bg-rose-500" />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-textMuted">Expense</span>
+                     <div className="flex items-center gap-3">
+                        <div className="h-2 w-10 bg-indigo-500 rounded-full" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">OUTFLOW</span>
                      </div>
                   </div>
                </div>
-               <div className="flex-1 relative">
-                  {incomeVsExpenseData ? (
-                    <Bar data={incomeVsExpenseData} options={chartOptions} />
-                  ) : (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-textMuted">
-                       <BarChart3 size={48} className="opacity-10 mb-2" />
-                       <p className="text-xs font-bold uppercase tracking-widest">Awaiting temporal data</p>
-                    </div>
-                  )}
+               <div className="p-10 h-[480px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                     <BarChart data={trendData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }} barGap={12}>
+                        <CartesianGrid strokeDasharray="10 10" vertical={false} stroke="rgba(255,255,255,0.03)" />
+                        <XAxis 
+                          dataKey="month" 
+                          axisLine={false} 
+                          tickLine={false} 
+                          tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: 900 }} 
+                          dy={20} 
+                        />
+                        <YAxis 
+                          axisLine={false} 
+                          tickLine={false} 
+                          tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: 900 }} 
+                          dx={-10} 
+                          tickFormatter={(v) => `₹${(v/1000).toFixed(0)}K`}
+                        />
+                        <RechartsTooltip 
+                          cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                          contentStyle={{ 
+                            backgroundColor: '#0a0a0a', 
+                            borderRadius: '24px', 
+                            border: '1px solid rgba(255,255,255,0.1)', 
+                            boxShadow: '0 32px 64px rgba(0,0,0,0.8)',
+                            padding: '24px'
+                          }}
+                          itemStyle={{ fontWeight: 900, fontSize: '12px', textTransform: 'uppercase' }}
+                        />
+                        <Bar 
+                          dataKey="income" 
+                          fill="#10b981" 
+                          radius={[6, 6, 0, 0]} 
+                          barSize={24}
+                        />
+                        <Bar 
+                          dataKey="spending" 
+                          fill="#6366f1" 
+                          radius={[6, 6, 0, 0]} 
+                          barSize={24}
+                        />
+                     </BarChart>
+                  </ResponsiveContainer>
                </div>
             </PremiumCard>
 
-            <PremiumCard variant="white" className="lg:col-span-4 !p-8 h-[450px] flex flex-col">
-              <h3 className="text-lg font-black text-textHeadings uppercase tracking-tight mb-8">Allocation</h3>
-              <div className="flex-1 relative flex items-center justify-center">
-                {categoryPieData ? (
-                  <Pie
-                    data={categoryPieData}
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: false,
-                      plugins: { 
-                        legend: { 
-                          position: "bottom", 
-                          labels: { 
-                            color: "#94a3b8", 
-                            padding: 20, 
-                            usePointStyle: true,
-                            font: { weight: 'bold', size: 10 }
-                          } 
-                        } 
-                      },
-                    }}
-                  />
-                ) : (
-                  <div className="text-center text-textMuted">
-                     <Layers size={48} className="opacity-10 mx-auto mb-2" />
-                     <p className="text-xs font-bold uppercase tracking-widest">No segments found</p>
-                  </div>
-                )}
+            {/* Segmentation Matrix */}
+            <PremiumCard variant="white" className="lg:col-span-4 !p-10 flex flex-col justify-between relative group">
+              <div className="flex items-center justify-between mb-10">
+                 <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tighter uppercase leading-none">Sector Hub</h3>
+                 <PieIcon size={20} className="text-slate-400 group-hover:rotate-45 transition-transform duration-500" />
+              </div>
+              <div className="flex-1 relative flex items-center justify-center min-h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                   <PieChart>
+                      <Pie
+                        data={categoryEntries}
+                        innerRadius={80}
+                        outerRadius={110}
+                        paddingAngle={5}
+                        dataKey="value"
+                        stroke="none"
+                      >
+                        {categoryEntries.map((_, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip 
+                         contentStyle={{ 
+                           backgroundColor: '#ffffff', 
+                           borderRadius: '20px', 
+                           border: '1px solid rgba(0,0,0,0.05)', 
+                           padding: '12px'
+                         }}
+                         itemStyle={{ fontWeight: 900, fontSize: '10px' }}
+                      />
+                   </PieChart>
+                </ResponsiveContainer>
+                {/* Center Label */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TOTAL DEPTH</p>
+                   <p className="text-xl font-black text-slate-900 dark:text-white tracking-tighter">₹{(categoryEntries.reduce((s,c) => s+c.value, 0)/1000).toFixed(1)}K</p>
+                </div>
+              </div>
+              <div className="mt-10 space-y-3">
+                 {categoryEntries.slice(0, 4).map((c, i) => (
+                   <div key={i} className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                         <div className="h-2 w-2 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                         <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">{c.name}</span>
+                      </div>
+                      <span className="text-[11px] font-black text-slate-900 dark:text-white">₹{c.value.toLocaleString()}</span>
+                   </div>
+                 ))}
               </div>
             </PremiumCard>
 
-            <PremiumCard variant="white" className="lg:col-span-12 !p-8 h-[400px] flex flex-col">
-               <div className="flex items-center justify-between mb-8">
-                  <div>
-                    <h3 className="text-lg font-black text-textHeadings uppercase tracking-tight">Spending Path</h3>
-                    <p className="text-xs font-bold text-textMuted uppercase tracking-widest">Trend forensic analysis</p>
-                  </div>
-                  <PremiumBadge color="indigo">Velocity Tracking</PremiumBadge>
+            {/* Velocity Heatmap Hub */}
+            <PremiumCard variant="white" className="lg:col-span-5 !p-10 flex flex-col shadow-xl">
+               <div className="flex items-center justify-between mb-10">
+                  <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tighter uppercase">Activity Heatmap</h3>
+                  <Zap size={18} className="text-amber-500 animate-pulse" />
                </div>
-               <div className="flex-1 relative">
-                  {spendingTrendData ? (
-                    <Line data={spendingTrendData} options={chartOptions} />
-                  ) : (
-                    <div className="absolute inset-0 flex items-center justify-center text-textMuted">
-                       <TrendingUp size={48} className="opacity-10" />
-                    </div>
-                  )}
-               </div>
-            </PremiumCard>
-
-            <PremiumCard variant="white" className="lg:col-span-7 !p-8 h-[400px] flex flex-col">
-               <div className="flex items-center justify-between mb-8">
-                   <h3 className="text-lg font-black text-textHeadings uppercase tracking-tight">Wealth Compounding</h3>
-                   <div className="flex items-center gap-2">
-                      <Sparkles size={16} className="text-emerald-500" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Growth Engine</span>
-                   </div>
-               </div>
-               <div className="flex-1 relative">
-                  {cumulativeSavingsData ? (
-                    <Line data={cumulativeSavingsData} options={chartOptions} />
-                  ) : (
-                    <div className="absolute inset-0 flex items-center justify-center text-textMuted">
-                       <Activity size={48} className="opacity-10" />
-                    </div>
-                  )}
-               </div>
-            </PremiumCard>
-
-            <PremiumCard variant="white" className="lg:col-span-5 !p-8 h-[400px] flex flex-col">
-               <h3 className="text-lg font-black text-textHeadings uppercase tracking-tight mb-8">Activity Intensity</h3>
-               <div className="flex-1 flex items-center justify-center">
+               <div className="flex-1 flex items-center justify-center py-6">
                   <ActivityHeatmap data={heatmapData} />
                </div>
-               <p className="mt-6 text-[10px] font-bold text-textMuted text-center uppercase tracking-widest">Visualizing the last 90 days of transaction density</p>
+               <div className="mt-10 pt-8 border-t border-slate-100 dark:border-white/5 text-center">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] leading-relaxed">
+                    90-DAY TRANSACTION VOLUMETRIC METRICS SYNCHRONIZED
+                  </p>
+               </div>
+            </PremiumCard>
+
+            {/* Growth Vector Analysis */}
+            <PremiumCard variant="white" className="lg:col-span-7 !p-10 flex flex-col shadow-xl overflow-hidden group">
+               <div className="flex items-center justify-between mb-10 border-b border-slate-100 dark:border-white/5 pb-8">
+                  <div>
+                    <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tighter uppercase leading-none text-emerald-500">Savings Trajectory</h3>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-3">Accumulated Wealth Magnitude Projections</p>
+                  </div>
+                  <Sparkles size={20} className="text-emerald-500 group-hover:rotate-12 transition-transform" />
+               </div>
+               <div className="flex-1 h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                     <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="colorSavings" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="10 10" vertical={false} stroke="rgba(0,0,0,0.03)" />
+                        <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 900 }} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 900 }} />
+                        <RechartsTooltip 
+                          contentStyle={{ 
+                            backgroundColor: '#ffffff', 
+                            borderRadius: '24px', 
+                            border: '1px solid rgba(0,0,0,0.05)', 
+                            boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
+                            padding: '20px'
+                          }}
+                        />
+                        <Area 
+                          type="monotone" 
+                          dataKey="income" 
+                          stroke="#10b981" 
+                          strokeWidth={4} 
+                          fillOpacity={1} 
+                          fill="url(#colorSavings)" 
+                        />
+                     </AreaChart>
+                  </ResponsiveContainer>
+               </div>
             </PremiumCard>
           </div>
-        </>
+        </div>
       )}
     </div>
   );

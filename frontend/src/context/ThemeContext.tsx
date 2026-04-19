@@ -11,7 +11,7 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
-const STORAGE_KEY = "ft_theme_mode";
+
 
 export const useThemeMode = () => {
   const ctx = useContext(ThemeContext);
@@ -23,24 +23,24 @@ export const useThemeMode = () => {
 
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const [mode, setMode] = useState<Mode>(() => {
-    if (typeof window === "undefined") return "dark";
-    const stored = window.localStorage.getItem(STORAGE_KEY) as Mode | null;
-    if (stored === "light" || stored === "dark") return stored;
-    return window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+    const saved = localStorage.getItem("theme-mode");
+    return (saved as Mode) || "dark";
   });
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(STORAGE_KEY, mode);
     const root = window.document.documentElement;
+    root.setAttribute("data-theme", mode);
     if (mode === "dark") {
       root.classList.add("dark");
     } else {
       root.classList.remove("dark");
     }
+    localStorage.setItem("theme-mode", mode);
   }, [mode]);
 
-  const toggleMode = () => setMode((prev) => (prev === "dark" ? "light" : "dark"));
+  const toggleMode = () => {
+    setMode((prev) => (prev === "light" ? "dark" : "light"));
+  };
 
   const muiTheme = useMemo(
     () =>

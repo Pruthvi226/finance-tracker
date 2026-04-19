@@ -1,5 +1,6 @@
 package com.financetracker.backend.controller;
 
+import com.financetracker.backend.dto.ApiResponse;
 import com.financetracker.backend.dto.NotificationDto;
 import com.financetracker.backend.dto.PageResponse;
 import com.financetracker.backend.service.NotificationService;
@@ -19,30 +20,34 @@ public class NotificationController {
     }
 
     @GetMapping
-    public ResponseEntity<PageResponse<NotificationDto>> getUserNotifications(
+    public ResponseEntity<ApiResponse<PageResponse<NotificationDto>>> getUserNotifications(
             @RequestParam(value = "pageNo", defaultValue = "0", required = false) int pageNo,
             @RequestParam(value = "pageSize", defaultValue = "10", required = false) int pageSize) {
-        return ResponseEntity.ok(notificationService.getUserNotifications(pageNo, pageSize));
+        PageResponse<NotificationDto> notifications = notificationService.getUserNotifications(pageNo, pageSize);
+        return ResponseEntity.ok(ApiResponse.success(notifications, "Notifications retrieved successfully"));
     }
 
     @GetMapping("/unread")
-    public ResponseEntity<List<NotificationDto>> getUnreadNotifications() {
-        return ResponseEntity.ok(notificationService.getUnreadNotifications());
+    public ResponseEntity<ApiResponse<List<NotificationDto>>> getUnreadNotifications() {
+        List<NotificationDto> unread = notificationService.getUnreadNotifications();
+        return ResponseEntity.ok(ApiResponse.success(unread, "Unread notifications retrieved"));
     }
 
     @GetMapping("/unread/count")
-    public ResponseEntity<Long> getUnreadCount() {
-        return ResponseEntity.ok(notificationService.getUnreadCount());
+    public ResponseEntity<ApiResponse<Long>> getUnreadCount() {
+        Long count = notificationService.getUnreadCount();
+        return ResponseEntity.ok(ApiResponse.success(count, "Unread notification count synchronized"));
     }
 
     @PutMapping("/{id}/read")
-    public ResponseEntity<NotificationDto> markAsRead(@PathVariable Long id) {
-        return ResponseEntity.ok(notificationService.markAsRead(id));
+    public ResponseEntity<ApiResponse<NotificationDto>> markAsRead(@PathVariable Long id) {
+        NotificationDto notification = notificationService.markAsRead(id);
+        return ResponseEntity.ok(ApiResponse.success(notification, "Notification marked as read"));
     }
 
     @PutMapping("/read-all")
-    public ResponseEntity<Void> markAllAsRead() {
+    public ResponseEntity<ApiResponse<Void>> markAllAsRead() {
         notificationService.markAllAsRead();
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(ApiResponse.success(null, "All notifications marked as read"));
     }
 }

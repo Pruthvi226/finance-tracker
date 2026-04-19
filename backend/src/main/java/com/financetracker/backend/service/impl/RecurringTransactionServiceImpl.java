@@ -12,7 +12,6 @@ import com.financetracker.backend.repository.CategoryRepository;
 import com.financetracker.backend.repository.RecurringTransactionRepository;
 import com.financetracker.backend.repository.TransactionRepository;
 import com.financetracker.backend.service.RecurringTransactionService;
-import com.financetracker.backend.service.UserService;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,21 +26,22 @@ public class RecurringTransactionServiceImpl implements RecurringTransactionServ
     private final RecurringTransactionRepository recurringTransactionRepository;
     private final TransactionRepository transactionRepository;
     private final CategoryRepository categoryRepository;
-    private final UserService userService;
+    private final com.financetracker.backend.repository.UserRepository userRepository;
 
     public RecurringTransactionServiceImpl(RecurringTransactionRepository recurringTransactionRepository,
                                            TransactionRepository transactionRepository,
                                            CategoryRepository categoryRepository,
-                                           UserService userService) {
+                                           com.financetracker.backend.repository.UserRepository userRepository) {
         this.recurringTransactionRepository = recurringTransactionRepository;
         this.transactionRepository = transactionRepository;
         this.categoryRepository = categoryRepository;
-        this.userService = userService;
+        this.userRepository = userRepository;
     }
 
     @Override
-    public RecurringTransactionDto createRecurringTransaction(RecurringTransactionDto dto) {
-        User user = userService.getCurrentUserEntity();
+    public RecurringTransactionDto createRecurringTransaction(Long userId, RecurringTransactionDto dto) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
         Category category = categoryRepository.findById(dto.getCategoryId())
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found with id: " + dto.getCategoryId()));
 
@@ -64,15 +64,15 @@ public class RecurringTransactionServiceImpl implements RecurringTransactionServ
     }
 
     @Override
-    public RecurringTransactionDto updateRecurringTransaction(Long id, RecurringTransactionDto dto) {
+    public RecurringTransactionDto updateRecurringTransaction(Long userId, Long id, RecurringTransactionDto dto) {
         RecurringTransaction rt = recurringTransactionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("RecurringTransaction not found with id: " + id));
-        User user = userService.getCurrentUserEntity();
 
-        if (!rt.getUser().getId().equals(user.getId())) {
+        if (!rt.getUser().getId().equals(userId)) {
             throw new IllegalArgumentException("Cannot update other users' recurring transactions");
         }
 
+        User user = rt.getUser();
         Category category = categoryRepository.findById(dto.getCategoryId())
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found with id: " + dto.getCategoryId()));
 
@@ -100,12 +100,11 @@ public class RecurringTransactionServiceImpl implements RecurringTransactionServ
     }
 
     @Override
-    public void deleteRecurringTransaction(Long id) {
+    public void deleteRecurringTransaction(Long userId, Long id) {
         RecurringTransaction rt = recurringTransactionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("RecurringTransaction not found with id: " + id));
-        User user = userService.getCurrentUserEntity();
 
-        if (!rt.getUser().getId().equals(user.getId())) {
+        if (!rt.getUser().getId().equals(userId)) {
             throw new IllegalArgumentException("Cannot delete other users' recurring transactions");
         }
 
@@ -113,9 +112,8 @@ public class RecurringTransactionServiceImpl implements RecurringTransactionServ
     }
 
     @Override
-    public List<RecurringTransactionDto> getUserRecurringTransactions() {
-        User user = userService.getCurrentUserEntity();
-        List<RecurringTransaction> list = recurringTransactionRepository.findByUserId(user.getId());
+    public List<RecurringTransactionDto> getUserRecurringTransactions(Long userId) {
+        List<RecurringTransaction> list = recurringTransactionRepository.findByUserId(userId);
         return list.stream().map(this::mapToDto).collect(Collectors.toList());
     }
 

@@ -1,11 +1,13 @@
 package com.financetracker.backend.controller;
 
+import com.financetracker.backend.dto.ApiResponse;
 import com.financetracker.backend.dto.BudgetDto;
 import com.financetracker.backend.service.BudgetService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -25,24 +27,28 @@ public class BudgetController {
     }
 
     @PostMapping
-    public ResponseEntity<BudgetDto> setBudget(@Valid @RequestBody BudgetDto dto) {
-        return ResponseEntity.ok(budgetService.setMonthlyBudget(dto));
+    public ResponseEntity<ApiResponse<BudgetDto>> setBudget(
+            @RequestAttribute("userId") Long userId,
+            @Valid @RequestBody BudgetDto dto) {
+        BudgetDto result = budgetService.setMonthlyBudget(userId, dto);
+        return ResponseEntity.ok(ApiResponse.success(result, "Monthly budget configured successfully"));
     }
 
     @GetMapping
-    public ResponseEntity<BudgetDto> getBudget() {
-        return ResponseEntity.ok(budgetService.getMonthlyBudget());
+    public ResponseEntity<ApiResponse<BudgetDto>> getBudget(@RequestAttribute("userId") Long userId) {
+        BudgetDto result = budgetService.getMonthlyBudget(userId);
+        return ResponseEntity.ok(ApiResponse.success(result, "Monthly budget retrieved successfully"));
     }
 
     @GetMapping("/status")
-    public ResponseEntity<Map<String, Object>> getBudgetStatus() {
-        BigDecimal remaining = budgetService.getRemainingBudget();
-        boolean exceeded = budgetService.isBudgetExceeded();
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getBudgetStatus(@RequestAttribute("userId") Long userId) {
+        BigDecimal remaining = budgetService.getRemainingBudget(userId);
+        boolean exceeded = budgetService.isBudgetExceeded(userId);
 
         Map<String, Object> body = new HashMap<>();
         body.put("remaining", remaining);
         body.put("exceeded", exceeded);
-        return ResponseEntity.ok(body);
+        return ResponseEntity.ok(ApiResponse.success(body, "Budget status snapshot retrieved"));
     }
 }
 

@@ -1,0 +1,26 @@
+*************************** 1. row ***************************
+       Table: budget
+Create Table: CREATE TABLE `budget` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `monthly_limit` decimal(15,2) NOT NULL,
+  `user_id` bigint NOT NULL,
+  `currency` varchar(3) NOT NULL,
+  `category_id` bigint DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `UK_otq2f2kxyvbum4irv63ymcgga` (`user_id`),
+  KEY `FKhmb8jwtv4s0fxal7k6ep84cub` (`category_id`),
+  CONSTRAINT `FK5hquwcop4uwka537brlrxifl3` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
+  CONSTRAINT `FKhmb8jwtv4s0fxal7k6ep84cub` FOREIGN KEY (`category_id`) REFERENCES `categories` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+*************************** 1. row ***************************
+       Table: categories
+Create Table: CREATE TABLE `categories` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `color` varchar(255) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `type` enum('INCOME','EXPENSE') NOT NULL,
+  `user_id` bigint DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `FKghuylkwuedgl2qahxjt8g41kb` (`user_id`),
+  CONSTRAINT `FKghuylkwuedgl2qahxjt8g41kb` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=57 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci

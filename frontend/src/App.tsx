@@ -12,6 +12,8 @@ import RecurringTransactionsPage from "./pages/RecurringTransactionsPage";
 import GoalsPage from "./pages/GoalsPage";
 import SettingsPage from "./pages/SettingsPage";
 import AccountsPage from "./pages/AccountsPage";
+import BillsPage from "./pages/BillsPage";
+import WarRoomPage from "./pages/WarRoomPage";
 import Layout from "./components/Layout/Layout";
 import { isAuthenticated } from "./services/auth";
 
@@ -43,6 +45,8 @@ function App() {
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="accounts" element={<AccountsPage />} />
+        <Route path="bills" element={<BillsPage />} />
+        <Route path="war-room" element={<WarRoomPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

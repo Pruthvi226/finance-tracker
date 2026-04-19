@@ -8,6 +8,7 @@ import com.financetracker.backend.repository.TransactionRepository;
 import com.financetracker.backend.service.AnalyticsService;
 import com.financetracker.backend.service.UserService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.YearMonth;
@@ -28,6 +29,7 @@ public class AnalyticsServiceImpl implements AnalyticsService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public AnalyticsDto getAnalytics(Long accountId) {
         User user = userService.getCurrentUserEntity();
         

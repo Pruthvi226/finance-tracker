@@ -1,5 +1,6 @@
 package com.financetracker.backend.controller;
 
+import com.financetracker.backend.dto.ApiResponse;
 import com.financetracker.backend.dto.FinancialGoalDto;
 import com.financetracker.backend.service.FinancialGoalService;
 import jakarta.validation.Valid;
@@ -20,23 +21,26 @@ public class FinancialGoalController {
     }
 
     @PostMapping
-    public ResponseEntity<FinancialGoalDto> createGoal(@Valid @RequestBody FinancialGoalDto dto) {
-        return new ResponseEntity<>(financialGoalService.createGoal(dto), HttpStatus.CREATED);
+    public ResponseEntity<ApiResponse<FinancialGoalDto>> createGoal(@Valid @RequestBody FinancialGoalDto dto) {
+        FinancialGoalDto saved = financialGoalService.createGoal(dto);
+        return new ResponseEntity<>(ApiResponse.success(saved, "Financial goal created successfully"), HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<FinancialGoalDto> updateGoal(@PathVariable Long id, @Valid @RequestBody FinancialGoalDto dto) {
-        return ResponseEntity.ok(financialGoalService.updateGoal(id, dto));
+    public ResponseEntity<ApiResponse<FinancialGoalDto>> updateGoal(@PathVariable Long id, @Valid @RequestBody FinancialGoalDto dto) {
+        FinancialGoalDto updated = financialGoalService.updateGoal(id, dto);
+        return ResponseEntity.ok(ApiResponse.success(updated, "Financial goal updated successfully"));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteGoal(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<Void>> deleteGoal(@PathVariable Long id) {
         financialGoalService.deleteGoal(id);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(ApiResponse.success(null, "Financial goal deleted successfully"));
     }
 
     @GetMapping
-    public ResponseEntity<List<FinancialGoalDto>> getUserGoals() {
-        return ResponseEntity.ok(financialGoalService.getUserGoals());
+    public ResponseEntity<ApiResponse<List<FinancialGoalDto>>> getUserGoals() {
+        List<FinancialGoalDto> goals = financialGoalService.getUserGoals();
+        return ResponseEntity.ok(ApiResponse.success(goals, "Financial goals retrieved successfully"));
     }
 }

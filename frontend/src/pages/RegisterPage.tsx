@@ -32,7 +32,7 @@ const RegisterPage = () => {
       await api.post("/auth/register", { name, email, password });
       navigate("/login");
     } catch (err: any) {
-      setError(err.response?.data?.message || "Protocol Installation Failed");
+      setError(err.message || "Something went wrong when creating account");
     } finally {
       setLoading(false);
     }
@@ -82,15 +82,15 @@ const RegisterPage = () => {
             
             <div className="flex justify-center mb-4">
                <PremiumBadge color="emerald">
-                  Identity Orchestration
+                  Join Us
                </PremiumBadge>
             </div>
             
             <h1 className="text-4xl font-black text-white uppercase tracking-tighter leading-none mb-3">
-              Join Protocol
+              Create Account
             </h1>
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.3em] opacity-80">
-              Access the Finova Intelligence Registry
+              Start your financial journey today
             </p>
           </div>
 
@@ -112,7 +112,7 @@ const RegisterPage = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="block text-[10px] font-black text-slate-400 ml-2 uppercase tracking-widest">Full Designation</label>
+                <label className="block text-[10px] font-black text-slate-400 ml-2 uppercase tracking-widest">Your Name</label>
                 <div className="relative group/field">
                   <User size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/field:text-emerald-400 transition-colors" />
                   <input
@@ -121,13 +121,13 @@ const RegisterPage = () => {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="w-full bg-white/5 border border-white/10 rounded-[22px] pl-14 pr-6 py-4 text-sm font-black text-white placeholder:text-slate-600 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/30 transition-all"
-                    placeholder="Entity Name"
+                    placeholder="Full Name"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="block text-[10px] font-black text-slate-400 ml-2 uppercase tracking-widest">Global Link (Email)</label>
+                <label className="block text-[10px] font-black text-slate-400 ml-2 uppercase tracking-widest">Your Email</label>
                 <div className="relative group/field">
                   <Mail size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/field:text-emerald-400 transition-colors" />
                   <input
@@ -143,7 +143,7 @@ const RegisterPage = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="block text-[10px] font-black text-slate-400 ml-2 uppercase tracking-widest">Secure Access Key</label>
+              <label className="block text-[10px] font-black text-slate-400 ml-2 uppercase tracking-widest">Choose Password</label>
               <div className="relative group/field">
                 <Lock size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/field:text-emerald-400 transition-colors" />
                 <input
@@ -166,11 +166,11 @@ const RegisterPage = () => {
                 {loading ? (
                   <span className="flex items-center justify-center gap-3">
                     <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                    Initializing Protocol...
+                    Creating Account...
                   </span>
                 ) : (
                   <span className="flex items-center gap-2">
-                    Establish Identity <Trophy size={18} />
+                    Create My Account <Trophy size={18} />
                   </span>
                 )}
               </PremiumButton>
@@ -180,9 +180,9 @@ const RegisterPage = () => {
           <div className="mt-10 flex flex-col items-center gap-6">
             <div className="w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
             <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">
-              Existing entity in registry?{" "}
+              Already have an account?{" "}
               <Link to="/login" className="text-emerald-400 hover:text-emerald-300 border-b border-emerald-500/30 hover:border-emerald-500 transition-all ml-1">
-                Authenticate Access
+                Sign In
               </Link>
             </p>
           </div>
@@ -192,11 +192,11 @@ const RegisterPage = () => {
         <div className="mt-8 flex flex-wrap items-center justify-center gap-6 opacity-40">
            <div className="flex items-center gap-2">
               <ShieldCheck size={14} className="text-emerald-500" />
-              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white">Secure Sharding</span>
+              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white">Secure Data Storage</span>
            </div>
            <div className="flex items-center gap-2">
               <Cpu size={14} className="text-indigo-400" />
-              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white">Edge Validation</span>
+              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white">Smart Verification</span>
            </div>
         </div>
       </motion.div>

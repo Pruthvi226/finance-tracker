@@ -1,7 +1,10 @@
 package com.financetracker.backend.entity;
 
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Entity
 @Table(name = "categories")
 public class Category {
@@ -17,6 +20,7 @@ public class Category {
     @Column(nullable = false)
     private TransactionType type;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id") // null means system default
     private User user;

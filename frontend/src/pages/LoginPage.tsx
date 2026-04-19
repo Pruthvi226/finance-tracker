@@ -1,5 +1,5 @@
+import { useState, useEffect } from "react";
 import type { FormEvent } from "react";
-import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { saveToken } from "../services/auth";
@@ -21,6 +21,12 @@ const LoginPage = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
+  useEffect(() => {
+    // Clear form fields on page load
+    setEmail("");
+    setPassword("");
+  }, []);
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -30,7 +36,7 @@ const LoginPage = () => {
       saveToken(res.data.token);
       navigate("/");
     } catch (err: any) {
-      setError(err.response?.data?.message || "Authentication Handshake Failed");
+      setError(err.message || "Something went wrong while signing in");
     } finally {
       setLoading(false);
     }
@@ -80,14 +86,14 @@ const LoginPage = () => {
             </motion.div>
             
             <PremiumBadge color="primary" className="mb-4 !bg-primary-500/10 !border-primary-500/20 !text-primary-400 !text-[9px]">
-               Secure Gateway Node
+               Personal Finance Portal
             </PremiumBadge>
             
             <h1 className="text-4xl font-black text-white uppercase tracking-tighter leading-none mb-3">
-              Auth Access
+              Sign In
             </h1>
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.3em] opacity-80">
-              Precision Financial Management
+              Manage your money with ease
             </p>
           </div>
 
@@ -108,24 +114,25 @@ const LoginPage = () => {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <label className="block text-[10px] font-black text-slate-400 ml-2 uppercase tracking-widest">Global Identity (Email)</label>
+              <label className="block text-[10px] font-black text-slate-400 ml-2 uppercase tracking-widest">Your Email</label>
               <div className="relative group/field">
                 <Mail size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/field:text-primary-400 transition-colors" />
                 <input
                   type="email"
                   required
                   value={email}
+                  autoComplete="off"
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-[22px] pl-14 pr-6 py-4 text-sm font-black text-white placeholder:text-slate-600 outline-none focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500/30 transition-all"
-                  placeholder="vault@finova.protocol"
+                  placeholder="name@email.com"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
               <div className="flex justify-between items-center ml-2">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Access Key (Password)</label>
-                <Link to="#" className="text-[9px] font-black text-primary-500 hover:text-primary-400 uppercase tracking-widest transition-colors">Recover Key?</Link>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Your Password</label>
+                <Link to="#" className="text-[9px] font-black text-primary-500 hover:text-primary-400 uppercase tracking-widest transition-colors">Forgot Password?</Link>
               </div>
               <div className="relative group/field">
                 <Lock size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/field:text-primary-400 transition-colors" />
@@ -133,6 +140,7 @@ const LoginPage = () => {
                   type="password"
                   required
                   value={password}
+                  autoComplete="off"
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-[22px] pl-14 pr-6 py-4 text-sm font-black text-white placeholder:text-slate-600 outline-none focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500/30 transition-all"
                   placeholder="••••••••"
@@ -149,11 +157,11 @@ const LoginPage = () => {
                 {loading ? (
                   <span className="flex items-center justify-center gap-3">
                     <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                    Decrypting Access...
+                    Signing you in...
                   </span>
                 ) : (
                   <span className="flex items-center gap-2">
-                    Initialize Access <ArrowRight size={18} />
+                    Sign In <ArrowRight size={18} />
                   </span>
                 )}
               </PremiumButton>
@@ -163,9 +171,9 @@ const LoginPage = () => {
           <div className="mt-10 flex flex-col items-center gap-6">
             <div className="w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
             <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">
-              Unregistered entity?{" "}
+              New here?{" "}
               <Link to="/register" className="text-primary-400 hover:text-primary-300 border-b border-primary-500/30 hover:border-primary-500 transition-all ml-1">
-                Establish Protocol
+                Create an Account
               </Link>
             </p>
           </div>
@@ -174,7 +182,7 @@ const LoginPage = () => {
         {/* Footer Security Badge */}
         <div className="mt-8 flex items-center justify-center gap-2 text-slate-500 opacity-60">
            <ShieldCheck size={14} />
-           <span className="text-[9px] font-black uppercase tracking-[0.2em]">End-to-End Quantum Encryption Active</span>
+           <span className="text-[9px] font-black uppercase tracking-[0.2em]">Secure & Encrypted Connection</span>
         </div>
       </motion.div>
     </div>

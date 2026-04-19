@@ -3,11 +3,10 @@ package com.financetracker.backend.service.impl;
 import com.financetracker.backend.dto.DashboardDto;
 import com.financetracker.backend.entity.Transaction;
 import com.financetracker.backend.entity.TransactionType;
-import com.financetracker.backend.entity.User;
 import com.financetracker.backend.repository.TransactionRepository;
 import com.financetracker.backend.service.DashboardService;
-import com.financetracker.backend.service.UserService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.YearMonth;
@@ -19,23 +18,28 @@ import java.util.stream.Collectors;
 public class DashboardServiceImpl implements DashboardService {
 
     private final TransactionRepository transactionRepository;
-    private final UserService userService;
 
-    public DashboardServiceImpl(TransactionRepository transactionRepository,
-                                UserService userService) {
+    public DashboardServiceImpl(TransactionRepository transactionRepository) {
         this.transactionRepository = transactionRepository;
-        this.userService = userService;
     }
 
     @Override
-    public DashboardDto getDashboardSummary(Long accountId) {
-        User user = userService.getCurrentUserEntity();
-
+    @Transactional(readOnly = true)
+    public DashboardDto getDashboardSummary(Long userId, Long accountId) {
         List<Transaction> transactions;
         if (accountId != null) {
-            transactions = transactionRepository.findByUserIdAndAccountId(user.getId(), accountId);
+            transactions = transactionRepository.findByUserIdAndAccountId(userId, accountId);
         } else {
-            transactions = transactionRepository.findByUserId(user.getId());
+            transactions = transactionRepository.findByUserId(userId);
+        }
+
+        if (transactions == null || transactions.isEmpty()) {
+            DashboardDto emptyDto = new DashboardDto();
+            emptyDto.setTotalIncome(BigDecimal.ZERO);
+            emptyDto.setTotalExpense(BigDecimal.ZERO);
+            emptyDto.setRemainingBalance(BigDecimal.ZERO);
+            emptyDto.setMonthlySummary(new java.util.HashMap<>());
+            return emptyDto;
         }
 
         List<Transaction> incomes = transactions.stream()
@@ -55,6 +59,7 @@ public class DashboardServiceImpl implements DashboardService {
         BigDecimal remaining = totalIncome.subtract(totalExpense);
 
         Map<String, BigDecimal> monthlySummary = incomes.stream()
+                .filter(i -> i.getDate() != null)
                 .collect(Collectors.groupingBy(
                         i -> YearMonth.from(i.getDate()).toString(),
                         Collectors.mapping(Transaction::getAmount,
@@ -63,6 +68,7 @@ public class DashboardServiceImpl implements DashboardService {
                 ));
 
         Map<String, BigDecimal> monthlyExpenses = expenses.stream()
+                .filter(e -> e.getDate() != null)
                 .collect(Collectors.groupingBy(
                         e -> YearMonth.from(e.getDate()).toString(),
                         Collectors.mapping(Transaction::getAmount,

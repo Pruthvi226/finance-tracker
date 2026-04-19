@@ -1,5 +1,6 @@
 package com.financetracker.backend.controller;
 
+import com.financetracker.backend.dto.ApiResponse;
 import com.financetracker.backend.entity.User;
 import com.financetracker.backend.payload.AuthDtos;
 import com.financetracker.backend.service.AuthService;
@@ -21,16 +22,17 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<User> register(@Valid @RequestBody AuthDtos.RegisterRequest request) {
+    public ResponseEntity<ApiResponse<User>> register(@Valid @RequestBody AuthDtos.RegisterRequest request) {
         User user = authService.register(request);
-        return ResponseEntity.ok(user);
+        return ResponseEntity.ok(ApiResponse.success(user, "Registration successful"));
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthDtos.JwtAuthenticationResponse> login(
+    public ResponseEntity<ApiResponse<AuthDtos.JwtAuthenticationResponse>> login(
             @Valid @RequestBody AuthDtos.LoginRequest request) {
         String token = authService.login(request);
-        return ResponseEntity.ok(new AuthDtos.JwtAuthenticationResponse(token));
+        AuthDtos.JwtAuthenticationResponse response = new AuthDtos.JwtAuthenticationResponse(token);
+        return ResponseEntity.ok(ApiResponse.success(response, "Login successful"));
     }
 }
 

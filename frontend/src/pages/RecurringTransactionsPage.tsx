@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
 import api from "../services/api";
 import { motion, AnimatePresence } from "framer-motion";
+import { format } from "date-fns";
 import toast from "react-hot-toast";
 import { 
-  Repeat, 
   Plus, 
-  Layers, 
   Trash2, 
   Activity, 
   Zap, 
@@ -13,9 +12,9 @@ import {
   Play,
   Calendar,
   IndianRupee,
-  CreditCard,
   ChevronDown,
-  X
+  X,
+  Repeat
 } from "lucide-react";
 import { PremiumCard } from "../components/ui/PremiumCard";
 import { PremiumButton } from "../components/ui/PremiumButton";
@@ -107,7 +106,7 @@ const RecurringTransactionsPage = () => {
       
       loadData();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to initialize cycle");
+      toast.error(err.message || "Failed to initialize cycle");
     } finally {
       setSubmitting(false);
     }
@@ -122,19 +121,19 @@ const RecurringTransactionsPage = () => {
       });
       toast.success(`Workflow ${!txn.active ? 'resumed' : 'suspended'}`);
       loadData();
-    } catch {
-      toast.error("Failed to modulate flow");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to modulate flow");
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Are you sure you want to terminate this subscription?")) return;
+    if (!window.confirm("Are you sure you want to stop this payment?")) return;
     try {
       await api.delete(`/recurring-transactions/${id}`);
       toast.success("Cycle terminated");
       loadData();
-    } catch {
-      toast.error("Failed to delete subscription");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete subscription");
     }
   };
 
@@ -153,16 +152,16 @@ const RecurringTransactionsPage = () => {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
           <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-[32px] font-black tracking-tight text-textHeadings dark:text-white leading-none">
-              Recurring Cycles
+            <h1 className="text-[32px] font-black tracking-tight text-textPrimary uppercase">
+              Regular Payments
             </h1>
             <PremiumBadge color="primary">
               <Zap size={12} className="mr-1" />
-              Automated Flows
+              Auto-payments
             </PremiumBadge>
           </div>
           <p className="text-[14px] font-medium text-textSecondary dark:text-slate-400">
-            Monitor and manage your repeating incomes and automated subscription burns.
+            Keep track of your repeating income and subscriptions.
           </p>
         </div>
 
@@ -171,7 +170,7 @@ const RecurringTransactionsPage = () => {
           className="shadow-xl shadow-primary-500/30"
         >
           <Plus size={18} strokeWidth={3} />
-          Append Cycle
+          Add Regular Payment
         </PremiumButton>
       </div>
 
@@ -181,13 +180,13 @@ const RecurringTransactionsPage = () => {
            <div className="absolute top-0 right-0 p-6 opacity-20 pointer-events-none transform translate-x-4 -translate-y-4">
               <Activity size={100} strokeWidth={1} />
            </div>
-           <p className="text-[11px] font-black uppercase tracking-[0.2em] text-white/70 mb-1">Projected Monthly Inflow</p>
+           <p className="text-[11px] font-black uppercase tracking-[0.2em] text-white/70 mb-1">Monthly Income</p>
            <h3 className="text-4xl font-black text-white tracking-tighter">
              ₹<AnimatedCounter value={monthlyTotals.income} decimals={0} />
            </h3>
            <div className="mt-4 flex items-center gap-2">
               <PremiumBadge color="gray" className="!bg-white/10 !text-white !border-white/20 !px-2 !py-0.5 !text-[9px]">
-                Active Streams
+                Income sources
               </PremiumBadge>
            </div>
         </PremiumCard>
@@ -196,13 +195,13 @@ const RecurringTransactionsPage = () => {
            <div className="absolute top-0 right-0 p-6 opacity-20 pointer-events-none transform translate-x-4 -translate-y-4 text-white">
               <ChevronDown size={100} strokeWidth={1} />
            </div>
-           <p className="text-[11px] font-black uppercase tracking-[0.2em] text-white/70 mb-1">Projected Monthly Burn</p>
+           <p className="text-[11px] font-black uppercase tracking-[0.2em] text-white/70 mb-1">Monthly Spending</p>
            <h3 className="text-4xl font-black text-white tracking-tighter">
              ₹<AnimatedCounter value={monthlyTotals.expense} decimals={0} />
            </h3>
            <div className="mt-4 flex items-center gap-2">
               <PremiumBadge color="gray" className="!bg-white/10 !text-white !border-white/20 !px-2 !py-0.5 !text-[9px]">
-                Subscription Load
+                Subscriptions
               </PremiumBadge>
            </div>
         </PremiumCard>
@@ -230,10 +229,10 @@ const RecurringTransactionsPage = () => {
               
               <div className="flex items-center justify-between mb-8">
                 <div>
-                  <h2 className="text-2xl font-black tracking-tight text-textHeadings dark:text-white uppercase">
-                    Configure Recurrence
+                  <h2 className="text-2xl font-black tracking-tight text-textPrimary uppercase">
+                    Set up Regular Payment
                   </h2>
-                  <p className="text-xs font-bold text-textSecondary dark:text-slate-400 mt-1 uppercase tracking-widest">Architect your repeating cash flows</p>
+                  <p className="text-xs font-bold text-textSecondary dark:text-slate-400 mt-1 uppercase tracking-widest">Plan your recurring bills and income.</p>
                 </div>
                 <button onClick={() => setShowForm(false)} className="text-textMuted hover:text-textPrimary transition-colors">
                   <X size={24} />
@@ -243,7 +242,7 @@ const RecurringTransactionsPage = () => {
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2 col-span-2 sm:col-span-1">
-                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-textMuted px-1">Designation Title</label>
+                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-textMuted px-1">Name</label>
                     <input
                       type="text"
                       required
@@ -255,7 +254,7 @@ const RecurringTransactionsPage = () => {
                   </div>
 
                   <div className="space-y-2 col-span-2 sm:col-span-1">
-                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-textMuted px-1">Periodic Amount</label>
+                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-textMuted px-1">Amount</label>
                     <div className="relative">
                       <IndianRupee size={16} className="absolute left-5 top-1/2 -translate-y-1/2 text-primary-500" />
                       <input
@@ -270,26 +269,26 @@ const RecurringTransactionsPage = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-textMuted px-1">Flow Type</label>
+                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-textMuted px-1">Type</label>
                     <select
                       className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-[18px] px-6 py-4 text-sm font-bold outline-none appearance-none cursor-pointer"
                       value={type}
                       onChange={(e) => setType(e.target.value as any)}
                     >
-                      <option value="EXPENSE">Expense Flow</option>
-                      <option value="INCOME">Income Flow</option>
+                      <option value="EXPENSE">Spending</option>
+                      <option value="INCOME">Income</option>
                     </select>
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-textMuted px-1">Temporal Category</label>
+                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-textMuted px-1">Category</label>
                     <select
                       className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-[18px] px-6 py-4 text-sm font-bold outline-none appearance-none cursor-pointer"
                       value={categoryId}
                       onChange={(e) => setCategoryId(e.target.value)}
                       required
                     >
-                      <option value="">Select Domain</option>
+                      <option value="">Choose a category</option>
                       {currentCategories.map(c => (
                         <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
@@ -297,7 +296,7 @@ const RecurringTransactionsPage = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-textMuted px-1">Cyclicality (Frequency)</label>
+                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-textMuted px-1">How often?</label>
                     <select
                       className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-[18px] px-6 py-4 text-sm font-bold outline-none appearance-none cursor-pointer"
                       value={frequency}
@@ -311,7 +310,7 @@ const RecurringTransactionsPage = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-textMuted px-1">Activation Date</label>
+                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-textMuted px-1">Start Date</label>
                     <input
                       type="date"
                       required
@@ -331,7 +330,7 @@ const RecurringTransactionsPage = () => {
                     Discard
                   </button>
                   <PremiumButton type="submit" className="flex-[1.5] !rounded-[20px] !bg-gradient-to-r from-primary-500 to-indigo-600">
-                    {submitting ? "Processing..." : "Establish Cycle"}
+                    {submitting ? "Saving..." : "Save Payment"}
                   </PremiumButton>
                 </div>
               </form>
@@ -350,9 +349,9 @@ const RecurringTransactionsPage = () => {
                 <div className="h-24 w-24 rounded-[32px] bg-gray-50 dark:bg-white/5 flex items-center justify-center mb-6">
                   <Repeat size={40} className="text-gray-200" />
                 </div>
-                <h3 className="text-xl font-black text-textHeadings dark:text-white uppercase tracking-tight">No Automated Cycles</h3>
+                <h3 className="text-xl font-black text-textPrimary uppercase tracking-tight">No Regular Payments</h3>
                 <p className="text-sm font-medium text-textSecondary dark:text-slate-400 mt-2 max-w-sm">
-                    Configure your first recurring flow to architect your predictable cashflows.
+                    Set up your first regular payment to manage your monthly budget easily.
                 </p>
             </div>
           ) : (
@@ -402,7 +401,7 @@ const RecurringTransactionsPage = () => {
                   </div>
 
                   <div className="ml-1 mb-6 flex-1">
-                    <h3 className="text-lg font-black text-textHeadings dark:text-white uppercase tracking-tight truncate mb-1">{txn.title}</h3>
+                    <h3 className="text-lg font-black text-textPrimary uppercase tracking-tight truncate mb-1">{txn.title}</h3>
                     <div className="flex items-center gap-2">
                        <PremiumBadge color="gray" className="!bg-gray-100/50 !text-textMuted !px-2 !py-0.5 !text-[9px]">
                          {txn.category?.name || "No Category"}
@@ -414,8 +413,8 @@ const RecurringTransactionsPage = () => {
                   <div className="ml-1 pt-4 border-t border-gray-100 dark:border-white/10">
                     <div className="flex justify-between items-end">
                       <div>
-                         <p className="text-[10px] font-black uppercase tracking-widest text-textMuted mb-0.5">Quantum</p>
-                         <h4 className={`text-xl font-black ${txn.type === 'INCOME' ? 'text-emerald-600' : 'text-textHeadings dark:text-white'}`}>
+                         <p className="text-[10px] font-black uppercase tracking-widest text-textMuted mb-0.5">Amount</p>
+                         <h4 className={`text-xl font-black ${txn.type === 'INCOME' ? 'text-emerald-600' : 'text-textPrimary'}`}>
                            {txn.type === 'INCOME' ? '+' : '-'}₹{txn.amount.toLocaleString()}
                          </h4>
                       </div>
@@ -423,7 +422,7 @@ const RecurringTransactionsPage = () => {
                          <p className="text-[10px] font-black uppercase tracking-widest text-textMuted mb-1 flex items-center justify-end gap-1">
                            Next: <Calendar size={10} />
                          </p>
-                         <p className="text-xs font-bold text-textPrimary dark:text-white">{txn.nextExecutionDate ? new Date(txn.nextExecutionDate).toLocaleDateString() : '--/--/--'}</p>
+                         <p className="text-xs font-bold text-textPrimary">{txn.nextExecutionDate ? format(new Date(txn.nextExecutionDate), "MMM dd, yyyy") : '--/--/--'}</p>
                       </div>
                     </div>
                   </div>

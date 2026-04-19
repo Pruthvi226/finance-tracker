@@ -2,39 +2,55 @@ import React from "react";
 
 interface PremiumBadgeProps {
   children: React.ReactNode;
-  color?: 'emerald' | 'rose' | 'amber' | 'indigo' | 'cyan' | 'gray' | 'primary';
+  color?: 'emerald' | 'rose' | 'amber' | 'indigo' | 'cyan' | 'gray' | 'primary' | 'violet';
   pulse?: boolean;
   className?: string;
+  variant?: 'solid' | 'outline' | 'neon';
 }
 
 export const PremiumBadge = ({ 
   children, 
   color = 'gray', 
   pulse = false,
-  className = ""
+  className = "",
+  variant = 'solid'
 }: PremiumBadgeProps) => {
-  const colors = {
-    emerald: "bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20",
-    rose: "bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20",
-    amber: "bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20",
-    indigo: "bg-indigo-50 text-indigo-600 border-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20",
-    primary: "bg-indigo-50 text-indigo-600 border-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20",
-    cyan: "bg-cyan-50 text-cyan-600 border-cyan-100 dark:bg-cyan-500/10 dark:text-cyan-400 dark:border-cyan-500/20",
-    gray: "bg-gray-50 text-gray-600 border-gray-100 dark:bg-white/5 dark:text-gray-400 dark:border-white/10",
+  const baseColors: Record<string, string> = {
+    emerald: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
+    rose: "text-rose-500 bg-rose-500/10 border-rose-500/20",
+    amber: "text-amber-500 bg-amber-500/10 border-amber-500/20",
+    indigo: "text-indigo-500 bg-indigo-500/10 border-indigo-500/20",
+    violet: "text-violet-500 bg-violet-500/10 border-violet-500/20",
+    cyan: "text-cyan-500 bg-cyan-500/10 border-cyan-500/20",
+    gray: "text-slate-500 bg-slate-500/10 border-slate-500/20",
+    primary: "text-indigo-400 bg-indigo-400/10 border-indigo-400/20",
+  };
+
+  const pulseColors: Record<string, string> = {
+    emerald: "bg-emerald-500",
+    rose: "bg-rose-500",
+    amber: "bg-amber-500",
+    indigo: "bg-indigo-500",
+    violet: "bg-violet-500",
+    cyan: "bg-cyan-500",
+    gray: "bg-slate-500",
+    primary: "bg-indigo-400",
   };
 
   return (
-    <div className={`px-2.5 py-1 rounded-full text-[11px] font-bold border flex items-center gap-1.5 ${colors[color]} ${className}`}>
+    <div 
+      className={`
+        px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border
+        flex items-center gap-2 transition-all duration-500 
+        ${baseColors[color]}
+        ${variant === 'neon' ? 'shadow-[0_0_10px_rgba(0,0,0,0.1)] !border-opacity-50' : ''}
+        ${className}
+      `}
+    >
       {pulse && (
         <span className="relative flex h-1.5 w-1.5">
-          <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-            color === 'emerald' ? 'bg-emerald-400' : 
-            color === 'rose' ? 'bg-rose-400' : 'bg-gray-400'
-          }`}></span>
-          <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${
-            color === 'emerald' ? 'bg-emerald-500' : 
-            color === 'rose' ? 'bg-rose-500' : 'bg-gray-500'
-          }`}></span>
+          <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${pulseColors[color]}`}></span>
+          <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${pulseColors[color]}`}></span>
         </span>
       )}
       {children}

@@ -1,371 +1,173 @@
 import { useEffect, useState } from "react";
+import { format } from "date-fns";
 import api from "../services/api";
-import { motion, AnimatePresence } from "framer-motion";
-import toast from "react-hot-toast";
 import { 
-  Trophy, 
-  Target, 
   Plus, 
-  Flag,
-  Calendar,
-  Sparkles,
-  Edit2,
-  Trash2,
-  X,
-  TrendingUp,
-  ArrowRight
+  Target, 
+  TrendingUp, 
+  Calendar, 
+  ChevronRight,
+  Star
 } from "lucide-react";
-import { AnimatedCounter } from "../components/AnimatedCounter";
+import { motion } from "framer-motion";
 import { PremiumCard } from "../components/ui/PremiumCard";
 import { PremiumButton } from "../components/ui/PremiumButton";
 import { PremiumBadge } from "../components/ui/PremiumBadge";
-
-type FinancialGoal = {
-  id: number;
-  title: string;
-  targetAmount: number;
-  currentAmount: number;
-  deadline: string;
-  progressPercentage: number;
-  requiredMonthlySavings: number;
-  estimatedCompletionDate: string | null;
-};
+import toast from "react-hot-toast";
 
 const GoalsPage = () => {
-  const [goals, setGoals] = useState<FinancialGoal[]>([]);
+  const [goals, setGoals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  // Form State
-  const [showForm, setShowForm] = useState(false);
-  const [editGoalId, setEditGoalId] = useState<number | null>(null);
-  
-  const [title, setTitle] = useState("");
-  const [targetAmount, setTargetAmount] = useState("");
-  const [currentAmount, setCurrentAmount] = useState("");
-  const [deadline, setDeadline] = useState("");
-
-  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    loadGoals();
+    const load = async () => {
+      try {
+        setLoading(true);
+        const res = await api.get("/goals");
+        setGoals(res.data);
+      } catch (err: any) {
+        toast.error(err.message || "Failed to load goals");
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
   }, []);
 
-  const loadGoals = async () => {
-    try {
-      setLoading(true);
-      const res = await api.get<FinancialGoal[]>("/goals");
-      setGoals(res.data);
-    } catch {
-      toast.error("Failed to load goals");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleEdit = (g: FinancialGoal) => {
-    setTitle(g.title);
-    setTargetAmount(g.targetAmount.toString());
-    setCurrentAmount(g.currentAmount.toString());
-    setDeadline(g.deadline);
-    setEditGoalId(g.id);
-    setShowForm(true);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title || !targetAmount || !deadline) return;
-    
-    setSubmitting(true);
-    try {
-      const payload = {
-        title,
-        targetAmount: parseFloat(targetAmount),
-        currentAmount: parseFloat(currentAmount || "0"),
-        deadline
-      };
-
-      if (editGoalId) {
-        await api.put(`/goals/${editGoalId}`, payload);
-        toast.success("Milestone updated");
-      } else {
-        await api.post("/goals", payload);
-        toast.success("New goal established");
-      }
-      
-      setShowForm(false);
-      resetForm();
-      loadGoals();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to save goal");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleDelete = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this milestone?")) return;
-    try {
-      await api.delete(`/goals/${id}`);
-      toast.success("Goal removed");
-      loadGoals();
-    } catch {
-      toast.error("Failed to delete goal");
-    }
-  };
-
-  const resetForm = () => {
-    setTitle("");
-    setTargetAmount("");
-    setCurrentAmount("");
-    setDeadline("");
-    setEditGoalId(null);
-  };
-
   return (
-    <div className="flex flex-col gap-8 pb-12">
+    <div className="flex flex-col gap-10 pb-20">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-10">
         <div>
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-[32px] font-black tracking-tight text-textHeadings dark:text-white leading-none">
-              Future Milestones
-            </h1>
-            <PremiumBadge color="amber">
-              <Trophy size={12} className="mr-1" />
-              {goals.filter(g => g.progressPercentage >= 100).length} Won
-            </PremiumBadge>
+          <div className="flex items-center gap-4 mb-3">
+             <div className="h-0.5 w-10 bg-emerald-500 rounded-full" />
+             <PremiumBadge color="emerald" variant="neon">MY SAVINGS GOALS</PremiumBadge>
           </div>
-          <p className="text-[14px] font-medium text-textSecondary dark:text-slate-400">
-            Define, track, and conquer your long-term financial objectives.
+          <h1 className="text-[54px] font-black tracking-tighter text-slate-900 dark:text-white leading-[0.85] mb-4">
+            Financial Aims
+          </h1>
+          <p className="text-[14px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+            Target Focus <span className="h-1 w-1 bg-slate-300 dark:bg-slate-700 rounded-full" /> {goals.length} Goals Tracking
           </p>
         </div>
 
-        <PremiumButton 
-          onClick={() => {
-            resetForm();
-            setShowForm(true);
-          }}
-          className="shadow-xl shadow-primary-500/30"
-        >
-          <Plus size={18} strokeWidth={3} />
-          New Milestone
-        </PremiumButton>
+        <div className="flex gap-4">
+           <PremiumButton 
+            size="lg"
+            className="shadow-xl shadow-emerald-500/20 h-14 !px-10 !rounded-[20px] bg-emerald-600 hover:bg-emerald-700 border-none"
+          >
+            <Plus size={18} strokeWidth={4} className="mr-2" />
+            CREATE NEW GOAL
+          </PremiumButton>
+        </div>
       </div>
 
-      <AnimatePresence>
-        {showForm && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowForm(false)}
-              className="absolute inset-0 bg-slate-900/40 backdrop-blur-md"
-            />
-            
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 40 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 40 }}
-              className="relative w-full max-w-lg bg-white dark:bg-[#0F172A] rounded-[32px] p-10 shadow-2xl overflow-hidden border border-gray-100 dark:border-white/5"
-            >
-              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-amber-400 to-orange-600" />
-              
-              <div className="flex items-center justify-between mb-8">
-                <div>
-                  <h2 className="text-2xl font-black tracking-tight text-textHeadings dark:text-white uppercase">
-                    {editGoalId ? "Target Adjustment" : "Establish Target"}
-                  </h2>
-                  <p className="text-xs font-bold text-textSecondary dark:text-slate-400 mt-1 uppercase tracking-widest">Architect your financial future</p>
-                </div>
-                <button onClick={() => setShowForm(false)} className="text-textMuted hover:text-textPrimary transition-colors">
-                  <X size={24} />
-                </button>
+      <div className="grid grid-cols-12 gap-8">
+        {/* Summary Row */}
+        <div className="col-span-12 grid grid-cols-1 md:grid-cols-3 gap-8">
+           <PremiumCard variant="white" className="!p-8 group overflow-hidden">
+              <div className="flex items-center justify-between mb-6">
+                 <div className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center border border-emerald-500/20 shadow-inner group-hover:bg-emerald-500 group-hover:text-white transition-all">
+                    <Target size={20} strokeWidth={3} />
+                 </div>
+                 <PremiumBadge color="emerald">TOTAL AIM</PremiumBadge>
               </div>
-              
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-[11px] font-black uppercase tracking-[0.2em] text-textMuted px-1">Goal Designation</label>
-                  <input
-                    type="text"
-                    required
-                    className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-[18px] px-6 py-4 text-sm font-bold placeholder:text-textMuted outline-none focus:ring-4 focus:ring-amber-500/5 transition-all"
-                    placeholder="e.g. Retirement Reserve, Dream Estate"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                  />
-                </div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Savings Needed</p>
+              <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter">₹8,50,000</h3>
+           </PremiumCard>
+           
+           <PremiumCard variant="white" className="!p-8 group overflow-hidden">
+              <div className="flex items-center justify-between mb-6">
+                 <div className="h-10 w-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center border border-indigo-500/20 shadow-inner group-hover:bg-indigo-500 group-hover:text-white transition-all">
+                    <TrendingUp size={20} strokeWidth={3} />
+                 </div>
+                 <PremiumBadge color="indigo">SAVED</PremiumBadge>
+              </div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Current Progress</p>
+              <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter">₹3,12,000</h3>
+           </PremiumCard>
 
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-textMuted px-1">Victory Point (Target)</label>
-                    <input
-                      type="number"
-                      required
-                      className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-[18px] px-6 py-4 text-sm font-bold outline-none focus:ring-4 focus:ring-amber-500/5 transition-all"
-                      value={targetAmount}
-                      onChange={(e) => setTargetAmount(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-textMuted px-1">Initial Input</label>
-                    <input
-                      type="number"
-                      className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-[18px] px-6 py-4 text-sm font-bold outline-none focus:ring-4 focus:ring-amber-500/5 transition-all"
-                      value={currentAmount}
-                      onChange={(e) => setCurrentAmount(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[11px] font-black uppercase tracking-[0.2em] text-textMuted px-1">Target Horizon (Date)</label>
-                  <input
-                    type="date"
-                    required
-                    className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-[18px] px-6 py-4 text-sm font-bold outline-none transition-all"
-                    value={deadline}
-                    onChange={(e) => setDeadline(e.target.value)}
-                  />
-                </div>
-
-                <div className="flex gap-4 pt-4">
-                   <button
-                    type="button"
-                    onClick={() => setShowForm(false)}
-                    className="flex-1 py-4 rounded-[20px] bg-gray-50 dark:bg-white/5 text-textSecondary font-black text-xs uppercase tracking-widest hover:bg-gray-100 transition-all border border-gray-100 dark:border-white/10"
-                  >
-                    Discard
-                  </button>
-                  <PremiumButton type="submit" className="flex-[1.5] !rounded-[20px] !bg-gradient-to-r from-amber-500 to-orange-600">
-                    {submitting ? "Processing..." : editGoalId ? "Seal Adjustments" : "Initialize Goal"}
-                  </PremiumButton>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-64 rounded-[24px] bg-gray-100 dark:bg-white/5 animate-pulse" />
-          ))}
+           <PremiumCard variant="white" className="!p-8 group overflow-hidden">
+              <div className="flex items-center justify-between mb-6">
+                 <div className="h-10 w-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center border border-amber-500/20 shadow-inner group-hover:bg-amber-500 group-hover:text-white transition-all">
+                    <Star size={20} strokeWidth={3} />
+                 </div>
+                 <PremiumBadge color="amber">STATUS</PremiumBadge>
+              </div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Completed Goals</p>
+              <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter">04</h3>
+           </PremiumCard>
         </div>
-      ) : goals.length === 0 ? (
-        <PremiumCard variant="white" className="py-24 text-center flex flex-col items-center">
-            <div className="h-24 w-24 rounded-[32px] bg-gray-50 dark:bg-white/5 flex items-center justify-center mb-6">
-              <Flag size={40} className="text-gray-200" />
-            </div>
-            <h3 className="text-xl font-black text-textHeadings dark:text-white uppercase tracking-tight">No Horizons Defined</h3>
-            <p className="text-sm font-medium text-textSecondary dark:text-slate-400 mt-2 max-w-sm">
-                Architect your first financial milestone to start your victory march.
-            </p>
-        </PremiumCard>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-          {goals.map((goal, idx) => {
-            const isCompleted = goal.progressPercentage >= 100;
 
-            return (
-              <PremiumCard
-                key={goal.id}
-                delayIndex={idx}
-                variant={isCompleted ? 'emerald' : 'white'}
-                className={`relative group overflow-hidden ${isCompleted ? 'border-none shadow-emerald-500/20' : ''}`}
-              >
-                {/* Visual Flair */}
-                <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none group-hover:scale-110 transition-transform duration-700">
-                   {isCompleted ? <Trophy size={120} strokeWidth={1} /> : <Target size={120} strokeWidth={1} />}
-                </div>
-
-                <div className="flex justify-between items-start mb-6">
-                  <div className={`h-12 w-12 rounded-xl flex items-center justify-center shadow-sm border ${
-                    isCompleted 
-                      ? 'bg-white/20 text-white border-white/20' 
-                      : 'bg-primary-50 text-primary-600 border-primary-100 dark:bg-primary-500/10 dark:text-primary-400 dark:border-primary-500/20'
-                  }`}>
-                    {isCompleted ? <Sparkles size={24} /> : <Flag size={24} />}
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => handleEdit(goal)}
-                      className={`h-8 w-8 rounded-lg flex items-center justify-center transition-all ${
-                        isCompleted ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-gray-50 hover:bg-gray-100 text-textMuted dark:bg-white/5'
-                      }`}
-                    >
-                      <Edit2 size={14} />
+        {/* Goal Grid */}
+        <div className="col-span-12">
+           <PremiumCard variant="white" className="!p-10">
+              <div className="flex items-center justify-between mb-10">
+                 <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">My Savings Plan</h3>
+                 <div className="flex items-center gap-4">
+                    <button className="text-[11px] font-black text-slate-400 hover:text-emerald-500 uppercase flex items-center gap-2">
+                       Filter By Date <ChevronRight size={14} strokeWidth={4} />
                     </button>
-                    <button 
-                      onClick={() => handleDelete(goal.id)}
-                      className={`h-8 w-8 rounded-lg flex items-center justify-center transition-all ${
-                        isCompleted ? 'bg-white/10 hover:bg-rose-500/30 text-white' : 'bg-gray-50 hover:bg-rose-50 text-textMuted dark:bg-white/5'
-                      }`}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
+                 </div>
+              </div>
 
-                <div className="mb-6">
-                  <h3 className={`text-xl font-black uppercase tracking-tight truncate ${isCompleted ? 'text-white' : 'text-textHeadings dark:text-white'}`}>
-                    {goal.title}
-                  </h3>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Calendar size={12} className={isCompleted ? 'text-white/60' : 'text-textMuted'} />
-                    <span className={`text-[10px] font-black uppercase tracking-widest ${isCompleted ? 'text-white/60' : 'text-textMuted'}`}>
-                      By {new Date(goal.deadline).toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex justify-between items-end">
-                    <div>
-                      <p className={`text-[10px] font-black uppercase tracking-widest leading-none mb-1.5 ${isCompleted ? 'text-white/60' : 'text-textMuted'}`}>Current Velocity</p>
-                      <div className={`text-2xl font-black tracking-tight ${isCompleted ? 'text-white' : 'text-textHeadings dark:text-white'}`}>
-                        ₹<AnimatedCounter value={goal.currentAmount} decimals={0} />
-                      </div>
-                    </div>
-                    <div className="text-right">
-                       <p className={`text-[10px] font-black uppercase tracking-widest leading-none mb-1.5 ${isCompleted ? 'text-white/60' : 'text-textMuted'}`}>Victory Point</p>
-                       <div className={`text-lg font-bold opacity-80 ${isCompleted ? 'text-white' : 'text-textSecondary dark:text-slate-300'}`}>
-                        ₹<AnimatedCounter value={goal.targetAmount} decimals={0} />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="relative pt-1">
-                    <div className={`w-full rounded-full h-2.5 shadow-inner overflow-hidden ${isCompleted ? 'bg-white/20' : 'bg-gray-100 dark:bg-white/5'}`}>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                 {loading ? (
+                    Array(6).fill(0).map((_, i) => (
+                      <div key={i} className="h-64 bg-slate-100 dark:bg-white/5 rounded-3xl animate-pulse" />
+                    ))
+                 ) : goals.map((goal, i) => {
+                    const progress = (goal.currentAmount / goal.targetAmount) * 100;
+                    return (
                       <motion.div 
-                        initial={{ width: 0 }}
-                        animate={{ width: `${goal.progressPercentage}%` }}
-                        transition={{ duration: 1.5, ease: "easeOut" }}
-                        className={`h-full rounded-full ${isCompleted ? 'bg-white shadow-[0_0_15px_rgba(255,255,255,0.8)]' : 'bg-gradient-to-r from-primary-400 to-primary-600'}`}
-                      />
-                    </div>
-                    <div className={`text-right mt-2 text-[10px] font-black uppercase tracking-[0.2em] ${isCompleted ? 'text-white' : 'text-primary-600 dark:text-primary-400'}`}>
-                      {goal.progressPercentage.toFixed(0)}% Achieved
-                    </div>
-                  </div>
+                        key={i}
+                        whileHover={{ y: -5 }}
+                        className="p-8 bg-slate-50 dark:bg-white/5 rounded-[40px] border border-slate-100 dark:border-white/5 group relative overflow-hidden"
+                      >
+                         <div className="flex items-center justify-between mb-8">
+                            <div className="p-4 rounded-2xl bg-emerald-500/10 text-emerald-500 group-hover:bg-emerald-500 group-hover:text-white transition-all shadow-inner">
+                               <Target size={26} strokeWidth={2.5} />
+                            </div>
+                            <PremiumBadge color={progress >= 100 ? 'emerald' : 'indigo'}>
+                               {progress >= 100 ? 'FINISHED' : 'IN PROGRESS'}
+                            </PremiumBadge>
+                         </div>
 
-                  {!isCompleted && (
-                    <div className="mt-4 p-4 rounded-2xl bg-gray-50/50 dark:bg-white/5 border border-gray-100 dark:border-white/5 text-center group/panel hover:border-amber-500/30 transition-all">
-                       <p className="text-[9px] font-black uppercase tracking-[0.2em] text-textMuted mb-2">Monthly Supply Required</p>
-                       <div className="flex items-center justify-center gap-2 text-amber-600 dark:text-amber-400">
-                          <TrendingUp size={14} />
-                          <span className="text-lg font-black tracking-tight">₹{goal.requiredMonthlySavings.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                       </div>
-                    </div>
-                  )}
-                </div>
-              </PremiumCard>
-            );
-          })}
+                         <div className="mb-8">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">AIMING FOR</p>
+                            <h4 className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter uppercase">{goal.title}</h4>
+                            <div className="flex items-center gap-2 mt-2">
+                               <Calendar size={12} className="text-slate-400" />
+                               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Finish by: {format(new Date(goal.targetDate), "MMM dd, yyyy")}</span>
+                            </div>
+                         </div>
+
+                         <div className="space-y-4">
+                            <div className="flex justify-between items-end">
+                               <p className="text-[11px] font-bold text-slate-500">₹{goal.currentAmount.toLocaleString()} / ₹{goal.targetAmount.toLocaleString()}</p>
+                               <p className="text-xl font-black text-slate-900 dark:text-white">{Math.round(progress)}%</p>
+                            </div>
+                            <div className="w-full h-3 bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden">
+                               <motion.div 
+                                 initial={{ width: 0 }}
+                                 animate={{ width: `${Math.min(100, progress)}%` }}
+                                 transition={{ duration: 1.5, ease: "easeOut" }}
+                                 className="h-full bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.3)]"
+                               />
+                            </div>
+                         </div>
+                         
+                         <div className="mt-8 pt-6 border-t border-slate-200/50 dark:border-white/5 flex items-center justify-between group/btn cursor-pointer">
+                            <span className="text-[10px] font-black text-slate-400 group-hover/btn:text-emerald-500 transition-colors uppercase tracking-widest">Add Funds</span>
+                            <ChevronRight size={14} strokeWidth={4} className="text-slate-300 group-hover/btn:translate-x-1 transition-transform" />
+                         </div>
+                      </motion.div>
+                    );
+                 })}
+              </div>
+           </PremiumCard>
         </div>
-      )}
+      </div>
     </div>
   );
 };

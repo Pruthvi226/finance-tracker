@@ -8,20 +8,27 @@ import {
   Target, 
   Settings, 
   PieChart,
-  Bell,
-  User,
-  History
+  History,
+  Bot,
+  Zap,
+  Sparkles,
+  ShieldCheck,
+  Radio
 } from "lucide-react";
+import { useSovereign } from "../../hooks/useSovereign";
 
 const navItems = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/transactions", label: "Transactions", icon: ReceiptText },
-  { to: "/analytics", label: "Analytics", icon: PieChart },
-  { to: "/accounts", label: "Accounts", icon: Wallet },
-  { to: "/budget", label: "Budgets", icon: BarChart3 },
-  { to: "/recurring", label: "Reports", icon: History },
-  { to: "/goals", label: "Goals", icon: Target },
-  { to: "/settings", label: "Settings", icon: Settings },
+  { to: "/", label: "Home Dashboard", icon: LayoutDashboard },
+  { to: "/war-room", label: "Financial Health", icon: Radio, neon: true },
+  { to: "/transactions", label: "Recent Spending", icon: ReceiptText },
+  { to: "/analytics", label: "Visual Reports", icon: PieChart },
+  { to: "/accounts", label: "My Accounts", icon: Wallet },
+  { to: "/budget", label: "Monthly Budgets", icon: BarChart3 },
+  { to: "/bills", label: "Monthly Bills", icon: History },
+  { to: "/recurring", label: "Recurrence Lab", icon: Zap },
+  { to: "/goals", label: "Savings Goals", icon: Target },
+  { to: "/insights", label: "AI Advisor", icon: Bot },
+  { to: "/settings", label: "App Settings", icon: Settings },
 ];
 
 type SidebarProps = {
@@ -30,9 +37,15 @@ type SidebarProps = {
 };
 
 const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
+  const { persona } = useSovereign();
+
   const NavContent = () => (
-    <nav className="flex-1 px-4 py-8 space-y-3">
-      <div className="text-[11px] font-bold text-textMuted uppercase tracking-[0.2em] mb-6 px-4">Main Menu</div>
+    <nav className="flex-1 px-4 py-8 space-y-2">
+      <div className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mb-8 px-4 flex items-center justify-between">
+         <span>Main Navigation</span>
+         <div className="h-1 w-1 rounded-full bg-slate-400" />
+      </div>
+
       {navItems.map((item) => {
         const Icon = item.icon;
         return (
@@ -44,34 +57,37 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           >
             {({ isActive }) => (
               <motion.div
-                whileHover={{ x: 5 }}
-                whileTap={{ scale: 0.97 }}
-                className={`flex items-center gap-4 px-4 py-3.5 rounded-[18px] font-semibold text-[14px] transition-all duration-500 relative group ${
+                whileHover={{ x: 4 }}
+                whileTap={{ scale: 0.98 }}
+                className={`flex items-center gap-4 px-4 py-3 rounded-2xl font-black text-[11px] transition-all duration-500 relative group truncate ${
                   isActive
-                    ? "text-white shadow-[0_10px_25px_rgba(99,102,241,0.25)]"
-                    : "text-textSecondary hover:text-primary-600 hover:bg-primary-50/50 dark:hover:bg-white/5"
+                    ? "text-white"
+                    : "text-slate-500 hover:text-indigo-500"
                 }`}
               >
                 {isActive && (
                   <motion.div
-                    layoutId="active-nav"
-                    className="absolute inset-0 rounded-[18px] bg-gradient-to-r from-primary-500 to-[#8B5CF6] z-0"
+                    layoutId="active-nav-glow"
+                    className="absolute inset-0 rounded-2xl z-0 shadow-lg"
+                    style={{ 
+                      background: item.neon ? `linear-gradient(to r, ${persona.color}, ${persona.color}dd)` : 'linear-gradient(to r, #4f46e5, #7c3aed)',
+                      boxShadow: `0 8px 20px ${item.neon ? persona.glow : 'rgba(79, 70, 229, 0.2)'}`
+                    }}
                     initial={false}
-                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    transition={{ type: "spring", stiffness: 350, damping: 35 }}
                   />
                 )}
-                <div className={`relative z-10 flex items-center justify-center p-2 rounded-[12px] transition-colors duration-300 ${
-                  isActive ? "bg-white/20" : "bg-gray-100/80 dark:bg-white/5 group-hover:bg-primary-100/50"
+                <div className={`relative z-10 flex items-center justify-center p-2 rounded-xl transition-all duration-300 ${
+                  isActive ? "bg-white/10" : "bg-slate-100 dark:bg-white/5 group-hover:bg-indigo-500/10"
                 }`}>
-                  <Icon size={18} strokeWidth={2.5} />
+                  <Icon size={18} strokeWidth={isActive ? 3 : 2.5} className={isActive ? "text-white" : "text-slate-500 group-hover:text-indigo-500"} />
                 </div>
-                <span className="relative z-10 tracking-tight">{item.label}</span>
-                {!isActive && (
-                  <motion.div 
-                    initial={{ scale: 0 }}
-                    whileHover={{ scale: 1 }}
-                    className="absolute right-4 w-1.5 h-1.5 rounded-full bg-primary-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                  />
+                <span className="relative z-10 tracking-[0.1em] uppercase">
+                  {item.label}
+                </span>
+
+                {item.neon && !isActive && (
+                   <span className="absolute right-4 w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
                 )}
               </motion.div>
             )}
@@ -90,27 +106,43 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-md md:hidden"
+            className="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-md md:hidden"
           />
         )}
       </AnimatePresence>
 
       <aside 
-        className={`fixed inset-y-0 left-0 z-50 w-[280px] transform transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] md:relative md:translate-x-0 outline-none
-          border-r border-gray-100 dark:border-white/5 md:bg-transparent md:border-none md:shadow-none bg-white 
-          min-h-screen pt-[80px] md:pt-6 px-4
+        className={`fixed inset-y-0 left-0 z-50 w-[280px] transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] md:relative md:translate-x-0 outline-none
+          px-4 py-6
           ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
-        <div className="h-full flex flex-col md:glass-card md:h-[calc(100vh-48px)] overflow-hidden">
+        <div 
+          className="h-full flex flex-col bg-white/50 dark:bg-slate-900/40 backdrop-blur-3xl rounded-[40px] border border-slate-200/50 dark:border-white/5 overflow-hidden shadow-2xl transition-colors duration-1000"
+          style={{ borderColor: persona.color + '22' }}
+        >
           <NavContent />
           
-          <div className="p-6 mt-auto">
-            <div className="glass-card p-4 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-white/5 dark:to-white/5 border-none">
-              <p className="text-xs font-bold text-primary-600 dark:text-primary-400 mb-1">PRO PLAN</p>
-              <p className="text-[10px] text-textSecondary mb-3">Get advanced analytics and insights.</p>
-              <button className="w-full py-2 bg-white dark:bg-white/10 text-xs font-bold rounded-xl shadow-sm hover:shadow-md transition-all">
-                Upgrade Now
-              </button>
+          <div className="p-8 mt-auto">
+            <div 
+              className="rounded-[32px] p-6 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 relative overflow-hidden group"
+              style={{ borderColor: persona.color + '33' }}
+            >
+              <div 
+                className="absolute -right-4 -top-4 w-20 h-20 rounded-full blur-3xl transition-all group-hover:scale-150 opacity-20"
+                style={{ backgroundColor: persona.color }}
+              />
+              <div className="relative z-10">
+                 <div className="flex items-center gap-3 mb-4">
+                    <div className="h-8 w-8 rounded-xl flex items-center justify-center text-white" style={{ backgroundColor: persona.color }}>
+                      {persona.type === 'SAVER' && <ShieldCheck size={16} strokeWidth={3} />}
+                      {persona.type === 'SPENDER' && <Zap size={16} fill="white" />}
+                      {persona.type === 'INVESTOR' && <Sparkles size={16} strokeWidth={3} />}
+                      {persona.type === 'BALANCED' && <ShieldCheck size={16} strokeWidth={3} />}
+                    </div>
+                    <p className="text-[10px] font-black tracking-[0.2em] text-slate-800 dark:text-white uppercase">AI Status: Active</p>
+                 </div>
+                 <p className="text-[10px] font-black text-slate-500 uppercase leading-relaxed tracking-widest">Your smart advisor is ready to help you save.</p>
+              </div>
             </div>
           </div>
         </div>
@@ -120,5 +152,3 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 };
 
 export default Sidebar;
-
-

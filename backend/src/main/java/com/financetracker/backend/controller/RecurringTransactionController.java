@@ -1,5 +1,6 @@
 package com.financetracker.backend.controller;
 
+import com.financetracker.backend.dto.ApiResponse;
 import com.financetracker.backend.dto.RecurringTransactionDto;
 import com.financetracker.backend.service.RecurringTransactionService;
 import jakarta.validation.Valid;
@@ -20,23 +21,33 @@ public class RecurringTransactionController {
     }
 
     @PostMapping
-    public ResponseEntity<RecurringTransactionDto> createRecurringTransaction(@Valid @RequestBody RecurringTransactionDto dto) {
-        return new ResponseEntity<>(recurringTransactionService.createRecurringTransaction(dto), HttpStatus.CREATED);
+    public ResponseEntity<ApiResponse<RecurringTransactionDto>> createRecurringTransaction(
+            @RequestAttribute("userId") Long userId,
+            @Valid @RequestBody RecurringTransactionDto dto) {
+        RecurringTransactionDto saved = recurringTransactionService.createRecurringTransaction(userId, dto);
+        return new ResponseEntity<>(ApiResponse.success(saved, "Recurring transaction created successfully"), HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<RecurringTransactionDto> updateRecurringTransaction(@PathVariable Long id, @Valid @RequestBody RecurringTransactionDto dto) {
-        return ResponseEntity.ok(recurringTransactionService.updateRecurringTransaction(id, dto));
+    public ResponseEntity<ApiResponse<RecurringTransactionDto>> updateRecurringTransaction(
+            @RequestAttribute("userId") Long userId,
+            @PathVariable Long id,
+            @Valid @RequestBody RecurringTransactionDto dto) {
+        RecurringTransactionDto updated = recurringTransactionService.updateRecurringTransaction(userId, id, dto);
+        return ResponseEntity.ok(ApiResponse.success(updated, "Recurring transaction updated successfully"));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteRecurringTransaction(@PathVariable Long id) {
-        recurringTransactionService.deleteRecurringTransaction(id);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<ApiResponse<Void>> deleteRecurringTransaction(
+            @RequestAttribute("userId") Long userId,
+            @PathVariable Long id) {
+        recurringTransactionService.deleteRecurringTransaction(userId, id);
+        return ResponseEntity.ok(ApiResponse.success(null, "Recurring transaction deleted successfully"));
     }
 
     @GetMapping
-    public ResponseEntity<List<RecurringTransactionDto>> getUserRecurringTransactions() {
-        return ResponseEntity.ok(recurringTransactionService.getUserRecurringTransactions());
+    public ResponseEntity<ApiResponse<List<RecurringTransactionDto>>> getUserRecurringTransactions(@RequestAttribute("userId") Long userId) {
+        List<RecurringTransactionDto> recurring = recurringTransactionService.getUserRecurringTransactions(userId);
+        return ResponseEntity.ok(ApiResponse.success(recurring, "Recurring transactions retrieved successfully"));
     }
 }

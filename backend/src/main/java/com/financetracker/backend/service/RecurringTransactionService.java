@@ -4,8 +4,8 @@ import com.financetracker.backend.dto.RecurringTransactionDto;
 import java.util.List;
 
 public interface RecurringTransactionService {
-    RecurringTransactionDto createRecurringTransaction(RecurringTransactionDto dto);
-    RecurringTransactionDto updateRecurringTransaction(Long id, RecurringTransactionDto dto);
-    void deleteRecurringTransaction(Long id);
-    List<RecurringTransactionDto> getUserRecurringTransactions();
+    RecurringTransactionDto createRecurringTransaction(Long userId, RecurringTransactionDto dto);
+    RecurringTransactionDto updateRecurringTransaction(Long userId, Long id, RecurringTransactionDto dto);
+    void deleteRecurringTransaction(Long userId, Long id);
+    List<RecurringTransactionDto> getUserRecurringTransactions(Long userId);
 }

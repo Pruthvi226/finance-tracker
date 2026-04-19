@@ -11,10 +11,11 @@ import com.financetracker.backend.entity.Account;
 import com.financetracker.backend.repository.AccountRepository;
 import com.financetracker.backend.repository.CategoryRepository;
 import com.financetracker.backend.repository.TransactionRepository;
+import com.financetracker.backend.repository.UserRepository;
+import com.financetracker.backend.service.AiService;
 import com.financetracker.backend.service.ReceiptStorageService;
 import com.financetracker.backend.service.TransactionService;
 import com.financetracker.backend.service.TransactionSpecification;
-import com.financetracker.backend.service.UserService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -34,29 +35,55 @@ public class TransactionServiceImpl implements TransactionService {
 
     private final TransactionRepository transactionRepository;
     private final CategoryRepository categoryRepository;
-    private final UserService userService;
+    private final UserRepository userRepository;
     private final ReceiptStorageService receiptStorageService;
     private final AccountRepository accountRepository;
+    private final AiService aiService;
 
     public TransactionServiceImpl(TransactionRepository transactionRepository,
                                   CategoryRepository categoryRepository,
-                                  UserService userService,
+                                  UserRepository userRepository,
                                   ReceiptStorageService receiptStorageService,
-                                  AccountRepository accountRepository) {
+                                  AccountRepository accountRepository,
+                                  AiService aiService) {
         this.transactionRepository = transactionRepository;
         this.categoryRepository = categoryRepository;
-        this.userService = userService;
+        this.userRepository = userRepository;
         this.receiptStorageService = receiptStorageService;
         this.accountRepository = accountRepository;
+        this.aiService = aiService;
     }
 
     @Override
-    public TransactionDto createTransaction(TransactionDto transactionDto) {
-        User user = userService.getCurrentUserEntity();
-        Category category = categoryRepository.findById(transactionDto.getCategoryId())
+    public TransactionDto createTransaction(Long userId, TransactionDto transactionDto) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+        
+        Category category = null;
+        if (transactionDto.getCategoryId() != null) {
+            category = categoryRepository.findById(transactionDto.getCategoryId())
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found with id: " + transactionDto.getCategoryId()));
+        } else if (transactionDto.getDescription() != null && !transactionDto.getDescription().trim().isEmpty()) {
+            try {
+                String aiCategoryName = aiService.categorize(transactionDto.getDescription()).getCategory();
+                List<Category> matchingCats = categoryRepository.findAll().stream()
+                    .filter(c -> c.getName().equalsIgnoreCase(aiCategoryName))
+                    .collect(Collectors.toList());
+                    
+                if (!matchingCats.isEmpty()) {
+                    category = matchingCats.get(0);
+                }
+            } catch (Exception e) {
+                // Ignore AI failure
+            }
+        }
 
-        Account account = accountRepository.findByIdAndUserId(transactionDto.getAccountId(), user.getId())
+        if (category == null) {
+            List<Category> all = categoryRepository.findAll();
+            if (!all.isEmpty()) category = all.get(0);
+        }
+
+        Account account = accountRepository.findByIdAndUserId(transactionDto.getAccountId(), userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Account not found with id: " + transactionDto.getAccountId()));
 
         Transaction transaction = new Transaction();
@@ -75,19 +102,19 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
-    public TransactionDto updateTransaction(Long id, TransactionDto transactionDto) {
+    public TransactionDto updateTransaction(Long userId, Long id, TransactionDto transactionDto) {
         Transaction transaction = transactionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Transaction not found with id: " + id));
-        User user = userService.getCurrentUserEntity();
 
-        if (!transaction.getUser().getId().equals(user.getId())) {
+        if (!transaction.getUser().getId().equals(userId)) {
             throw new IllegalArgumentException("Cannot update other users' transactions");
         }
 
+        User user = transaction.getUser();
         Category category = categoryRepository.findById(transactionDto.getCategoryId())
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found with id: " + transactionDto.getCategoryId()));
 
-        Account account = accountRepository.findByIdAndUserId(transactionDto.getAccountId(), user.getId())
+        Account account = accountRepository.findByIdAndUserId(transactionDto.getAccountId(), userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Account not found with id: " + transactionDto.getAccountId()));
 
         transaction.setAccount(account);
@@ -104,12 +131,11 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
-    public void deleteTransaction(Long id) {
+    public void deleteTransaction(Long userId, Long id) {
         Transaction transaction = transactionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Transaction not found with id: " + id));
-        User user = userService.getCurrentUserEntity();
 
-        if (!transaction.getUser().getId().equals(user.getId())) {
+        if (!transaction.getUser().getId().equals(userId)) {
             throw new IllegalArgumentException("Cannot delete other users' transactions");
         }
 
@@ -117,12 +143,11 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
-    public TransactionDto getTransactionById(Long id) {
+    public TransactionDto getTransactionById(Long userId, Long id) {
         Transaction transaction = transactionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Transaction not found with id: " + id));
-        User user = userService.getCurrentUserEntity();
 
-        if (!transaction.getUser().getId().equals(user.getId())) {
+        if (!transaction.getUser().getId().equals(userId)) {
             throw new IllegalArgumentException("Cannot access other users' transactions");
         }
 
@@ -130,16 +155,21 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
+    public List<Transaction> getAllTransactionsByUserId(Long userId) {
+        return transactionRepository.findByUserIdOrderByDateDesc(userId);
+    }
+
+    @Override
     public PageResponse<TransactionDto> getUserTransactions(
+            Long userId,
             int pageNo, int pageSize, Long categoryId, Long accountId,
             com.financetracker.backend.entity.TransactionType type,
             LocalDate startDate, LocalDate endDate,
             BigDecimal minAmount, BigDecimal maxAmount, String search) {
 
-        User user = userService.getCurrentUserEntity();
         Pageable pageable = PageRequest.of(pageNo, pageSize, Sort.by("date").descending());
 
-        Specification<Transaction> spec = Specification.where(TransactionSpecification.hasUserId(user.getId()));
+        Specification<Transaction> spec = Specification.where(TransactionSpecification.hasUserId(userId));
 
         if (categoryId != null) {
             spec = spec.and(TransactionSpecification.hasCategoryId(categoryId));
@@ -171,12 +201,11 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
-    public TransactionDto uploadReceipt(Long id, MultipartFile file) {
+    public TransactionDto uploadReceipt(Long userId, Long id, MultipartFile file) {
         Transaction transaction = transactionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Transaction not found with id: " + id));
-        User user = userService.getCurrentUserEntity();
 
-        if (!transaction.getUser().getId().equals(user.getId())) {
+        if (!transaction.getUser().getId().equals(userId)) {
             throw new IllegalArgumentException("Cannot modify other users' transactions");
         }
 

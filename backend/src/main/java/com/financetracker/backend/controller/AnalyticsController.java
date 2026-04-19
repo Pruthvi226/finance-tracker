@@ -1,6 +1,7 @@
 package com.financetracker.backend.controller;
 
 import com.financetracker.backend.dto.AnalyticsDto;
+import com.financetracker.backend.dto.ApiResponse;
 import com.financetracker.backend.service.AnalyticsService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,9 +20,10 @@ public class AnalyticsController {
     }
 
     @GetMapping
-    public ResponseEntity<AnalyticsDto> getAnalytics(
+    public ResponseEntity<ApiResponse<AnalyticsDto>> getAnalytics(
             @RequestParam(value = "accountId", required = false) Long accountId) {
-        return ResponseEntity.ok(analyticsService.getAnalytics(accountId));
+        AnalyticsDto analytics = analyticsService.getAnalytics(accountId);
+        return ResponseEntity.ok(ApiResponse.success(analytics, "Analytics data retrieved successfully"));
     }
 }
 

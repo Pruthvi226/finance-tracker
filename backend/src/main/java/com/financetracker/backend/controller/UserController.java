@@ -1,5 +1,6 @@
 package com.financetracker.backend.controller;
 
+import com.financetracker.backend.dto.ApiResponse;
 import com.financetracker.backend.dto.ProfileDto;
 import com.financetracker.backend.service.UserService;
 import jakarta.validation.Valid;
@@ -21,13 +22,15 @@ public class UserController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<ProfileDto> getProfile() {
-        return ResponseEntity.ok(userService.getCurrentUserProfile());
+    public ResponseEntity<ApiResponse<ProfileDto>> getProfile() {
+        ProfileDto profile = userService.getCurrentUserProfile();
+        return ResponseEntity.ok(ApiResponse.success(profile, "User profile retrieved successfully"));
     }
 
     @PutMapping("/me")
-    public ResponseEntity<ProfileDto> updateProfile(@Valid @RequestBody ProfileDto profileDto) {
-        return ResponseEntity.ok(userService.updateCurrentUserProfile(profileDto));
+    public ResponseEntity<ApiResponse<ProfileDto>> updateProfile(@Valid @RequestBody ProfileDto profileDto) {
+        ProfileDto updated = userService.updateCurrentUserProfile(profileDto);
+        return ResponseEntity.ok(ApiResponse.success(updated, "User profile updated successfully"));
     }
 }
 

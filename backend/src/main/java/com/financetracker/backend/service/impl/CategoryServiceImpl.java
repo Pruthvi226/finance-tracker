@@ -6,7 +6,6 @@ import com.financetracker.backend.entity.User;
 import com.financetracker.backend.exception.ResourceNotFoundException;
 import com.financetracker.backend.repository.CategoryRepository;
 import com.financetracker.backend.service.CategoryService;
-import com.financetracker.backend.service.UserService;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -16,16 +15,17 @@ import java.util.stream.Collectors;
 public class CategoryServiceImpl implements CategoryService {
 
     private final CategoryRepository categoryRepository;
-    private final UserService userService;
+    private final com.financetracker.backend.repository.UserRepository userRepository;
 
-    public CategoryServiceImpl(CategoryRepository categoryRepository, UserService userService) {
+    public CategoryServiceImpl(CategoryRepository categoryRepository, com.financetracker.backend.repository.UserRepository userRepository) {
         this.categoryRepository = categoryRepository;
-        this.userService = userService;
+        this.userRepository = userRepository;
     }
 
     @Override
-    public CategoryDto createCategory(CategoryDto categoryDto) {
-        User user = userService.getCurrentUserEntity();
+    public CategoryDto createCategory(Long userId, CategoryDto categoryDto) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
         Category category = new Category();
         category.setName(categoryDto.getName());
         category.setType(categoryDto.getType());
@@ -36,12 +36,11 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
-    public CategoryDto updateCategory(Long id, CategoryDto categoryDto) {
+    public CategoryDto updateCategory(Long userId, Long id, CategoryDto categoryDto) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found with id: " + id));
-        User user = userService.getCurrentUserEntity();
 
-        if (category.getUser() == null || !category.getUser().getId().equals(user.getId())) {
+        if (category.getUser() == null || !category.getUser().getId().equals(userId)) {
             throw new IllegalArgumentException("Cannot update system categories or other users' categories");
         }
 
@@ -53,21 +52,19 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
-    public void deleteCategory(Long id) {
+    public void deleteCategory(Long userId, Long id) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found with id: " + id));
-        User user = userService.getCurrentUserEntity();
 
-        if (category.getUser() == null || !category.getUser().getId().equals(user.getId())) {
+        if (category.getUser() == null || !category.getUser().getId().equals(userId)) {
             throw new IllegalArgumentException("Cannot delete system categories or other users' categories");
         }
         categoryRepository.delete(category);
     }
 
     @Override
-    public List<CategoryDto> getUserCategories() {
-        User user = userService.getCurrentUserEntity();
-        List<Category> categories = categoryRepository.findByUserIdOrUserIsNull(user.getId());
+    public List<CategoryDto> getUserCategories(Long userId) {
+        List<Category> categories = categoryRepository.findByUserIdOrUserIsNull(userId);
         return categories.stream().map(this::mapToDto).collect(Collectors.toList());
     }
 

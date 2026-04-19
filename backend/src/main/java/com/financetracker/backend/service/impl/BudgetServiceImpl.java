@@ -6,7 +6,6 @@ import com.financetracker.backend.entity.User;
 import com.financetracker.backend.repository.BudgetRepository;
 import com.financetracker.backend.repository.TransactionRepository;
 import com.financetracker.backend.service.BudgetService;
-import com.financetracker.backend.service.UserService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,20 +18,21 @@ public class BudgetServiceImpl implements BudgetService {
 
     private final BudgetRepository budgetRepository;
     private final TransactionRepository transactionRepository;
-    private final UserService userService;
+    private final com.financetracker.backend.repository.UserRepository userRepository;
 
     public BudgetServiceImpl(BudgetRepository budgetRepository,
                              TransactionRepository transactionRepository,
-                             UserService userService) {
+                             com.financetracker.backend.repository.UserRepository userRepository) {
         this.budgetRepository = budgetRepository;
         this.transactionRepository = transactionRepository;
-        this.userService = userService;
+        this.userRepository = userRepository;
     }
 
     @Override
     @Transactional
-    public BudgetDto setMonthlyBudget(BudgetDto dto) {
-        User user = userService.getCurrentUserEntity();
+    public BudgetDto setMonthlyBudget(Long userId, BudgetDto dto) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new com.financetracker.backend.exception.ResourceNotFoundException("User not found"));
         Budget budget = budgetRepository.findByUser(user)
                 .orElseGet(() -> {
                     Budget b = new Budget();
@@ -48,8 +48,9 @@ public class BudgetServiceImpl implements BudgetService {
     }
 
     @Override
-    public BudgetDto getMonthlyBudget() {
-        User user = userService.getCurrentUserEntity();
+    public BudgetDto getMonthlyBudget(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new com.financetracker.backend.exception.ResourceNotFoundException("User not found"));
         return budgetRepository.findByUser(user)
                 .map(b -> {
                     BudgetDto dto = new BudgetDto();
@@ -60,8 +61,9 @@ public class BudgetServiceImpl implements BudgetService {
     }
 
     @Override
-    public BigDecimal getRemainingBudget() {
-        User user = userService.getCurrentUserEntity();
+    public BigDecimal getRemainingBudget(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new com.financetracker.backend.exception.ResourceNotFoundException("User not found"));
         Budget budget = budgetRepository.findByUser(user).orElse(null);
         if (budget == null) {
             return BigDecimal.ZERO;
@@ -72,7 +74,7 @@ public class BudgetServiceImpl implements BudgetService {
         LocalDate end = currentMonth.atEndOfMonth();
 
         return budget.getMonthlyLimit()
-                .subtract(transactionRepository.findByUserIdAndDateBetween(user.getId(), start, end)
+                .subtract(transactionRepository.findByUserIdAndDateBetween(userId, start, end)
                         .stream()
                         .filter(t -> t.getType() == com.financetracker.backend.entity.TransactionType.EXPENSE)
                         .map(t -> t.getAmount())
@@ -80,8 +82,8 @@ public class BudgetServiceImpl implements BudgetService {
     }
 
     @Override
-    public boolean isBudgetExceeded() {
-        BigDecimal remaining = getRemainingBudget();
+    public boolean isBudgetExceeded(Long userId) {
+        BigDecimal remaining = getRemainingBudget(userId);
         return remaining.compareTo(BigDecimal.ZERO) < 0;
     }
 }

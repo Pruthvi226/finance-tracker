@@ -6,12 +6,12 @@ import java.math.BigDecimal;
 
 public interface BudgetService {
 
-    BudgetDto setMonthlyBudget(BudgetDto dto);
+    BudgetDto setMonthlyBudget(Long userId, BudgetDto dto);
 
-    BudgetDto getMonthlyBudget();
+    BudgetDto getMonthlyBudget(Long userId);
 
-    BigDecimal getRemainingBudget();
+    BigDecimal getRemainingBudget(Long userId);
 
-    boolean isBudgetExceeded();
+    boolean isBudgetExceeded(Long userId);
 }
 

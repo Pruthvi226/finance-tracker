@@ -15,7 +15,8 @@
     "postcss": "^8.5.8",
     "tailwindcss": "^3.4.4",
     "typescript": "~5.9.3",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "@vitejs/plugin-react": "^4.3.4"
   },
   "dependencies": {
     "@emotion/react": "^11.13.0",

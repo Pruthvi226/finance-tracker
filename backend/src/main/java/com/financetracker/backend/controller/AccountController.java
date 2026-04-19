@@ -1,8 +1,8 @@
 package com.financetracker.backend.controller;
 
 import com.financetracker.backend.dto.AccountDto;
+import com.financetracker.backend.dto.ApiResponse;
 import com.financetracker.backend.service.AccountService;
-import com.financetracker.backend.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,42 +15,39 @@ import java.util.List;
 public class AccountController {
 
     private final AccountService accountService;
-    private final UserService userService;
 
-    public AccountController(AccountService accountService, UserService userService) {
+    public AccountController(AccountService accountService) {
         this.accountService = accountService;
-        this.userService = userService;
     }
 
     @PostMapping
-    public ResponseEntity<AccountDto> createAccount(
+    public ResponseEntity<ApiResponse<AccountDto>> createAccount(
+            @RequestAttribute("userId") Long userId,
             @Valid @RequestBody AccountDto accountDto) {
-        Long userId = userService.getCurrentUserEntity().getId();
         AccountDto createdAccount = accountService.createAccount(userId, accountDto);
-        return new ResponseEntity<>(createdAccount, HttpStatus.CREATED);
+        return new ResponseEntity<>(ApiResponse.success(createdAccount, "Account created successfully"), HttpStatus.CREATED);
     }
 
     @GetMapping
-    public ResponseEntity<List<AccountDto>> getUserAccounts() {
-        Long userId = userService.getCurrentUserEntity().getId();
+    public ResponseEntity<ApiResponse<List<AccountDto>>> getUserAccounts(@RequestAttribute("userId") Long userId) {
         List<AccountDto> accounts = accountService.getUserAccounts(userId);
-        return ResponseEntity.ok(accounts);
+        return ResponseEntity.ok(ApiResponse.success(accounts, "Accounts retrieved successfully"));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<AccountDto> updateAccount(
+    public ResponseEntity<ApiResponse<AccountDto>> updateAccount(
+            @RequestAttribute("userId") Long userId,
             @PathVariable Long id,
             @Valid @RequestBody AccountDto accountDto) {
-        Long userId = userService.getCurrentUserEntity().getId();
         AccountDto updatedAccount = accountService.updateAccount(userId, id, accountDto);
-        return ResponseEntity.ok(updatedAccount);
+        return ResponseEntity.ok(ApiResponse.success(updatedAccount, "Account updated successfully"));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteAccount(
+    public ResponseEntity<ApiResponse<Void>> deleteAccount(
+            @RequestAttribute("userId") Long userId,
             @PathVariable Long id) {
-        Long userId = userService.getCurrentUserEntity().getId();
         accountService.deleteAccount(userId, id);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(ApiResponse.success(null, "Account deleted successfully"));
     }
 }

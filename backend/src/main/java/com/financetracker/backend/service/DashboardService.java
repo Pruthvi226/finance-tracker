@@ -4,6 +4,6 @@ import com.financetracker.backend.dto.DashboardDto;
 
 public interface DashboardService {
 
-    DashboardDto getDashboardSummary(Long accountId);
+    DashboardDto getDashboardSummary(Long userId, Long accountId);
 }
 

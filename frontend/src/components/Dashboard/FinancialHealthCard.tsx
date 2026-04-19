@@ -24,7 +24,7 @@ const FinancialHealthCard = () => {
 
   const loadHealth = async () => {
     try {
-      const res = await api.get<FinancialHealthDto>("/insights/health");
+      const res = await api.get<FinancialHealthDto>("/ai/score");
       setData(res.data);
     } catch {
       // Graceful fallback if API fails

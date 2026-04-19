@@ -1,21 +1,14 @@
-# Build stage
-FROM maven:3.9.6-eclipse-temurin-17 AS build
+# Stage 1: Build
+FROM maven:3.9.6-eclipse-temurin-21 AS build
 WORKDIR /app
 COPY pom.xml .
+RUN mvn dependency:go-offline
 COPY src ./src
-# Build the application, skipping tests for faster builds
-RUN mvn clean package -DskipTests
+RUN mvn package -DskipTests
 
-# Run stage
-FROM eclipse-temurin:17-jre-alpine
+# Stage 2: Run
+FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
-
-# Copy the built jar
-COPY --from=build /app/target/*.jar app.jar
-
-# Setup environment variables that can be overridden at runtime
-ENV SPRING_PROFILES_ACTIVE=prod
-ENV PORT=8080
-
-EXPOSE ${PORT}
+COPY --from=build /app/target/finance-tracker-backend-*.jar app.jar
+EXPOSE 8081
 ENTRYPOINT ["java", "-jar", "app.jar"]

@@ -1,244 +1,282 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import api from "../services/api";
-import toast from "react-hot-toast";
 import { 
-  Plus, 
   Search, 
+  Filter, 
+  Plus, 
   Download, 
-  FileText, 
-  Filter,
-  BarChart3,
-  Calendar,
-  X,
-  ChevronDown
+  ArrowUpDown,
+  Receipt,
+  ChevronRight,
+  ChevronLeft
 } from "lucide-react";
-import { TransactionCard } from "../components/Transactions/TransactionCard";
+import { motion, AnimatePresence } from "framer-motion";
 import { PremiumCard } from "../components/ui/PremiumCard";
 import { PremiumButton } from "../components/ui/PremiumButton";
 import { PremiumBadge } from "../components/ui/PremiumBadge";
-import { motion, AnimatePresence } from "framer-motion";
-
-interface Transaction {
-  id: number;
-  amount: number;
-  currency: string;
-  type: "INCOME" | "EXPENSE";
-  date: string;
-  description: string;
-  category: { id: number; name: string } | null;
-  receiptUrl: string | null;
-}
+import TransactionForm from "../components/Transactions/TransactionForm";
+import { TransactionCard } from "../components/Transactions/TransactionCard";
 
 const TransactionsPage = () => {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<"ALL" | "INCOME" | "EXPENSE">("ALL");
-  const [accounts, setAccounts] = useState<any[]>([]);
-  const [selectedAccountId, setSelectedAccountId] = useState<number | "ALL">("ALL");
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<any | null>(null);
 
-  useEffect(() => {
-    const fetchAccounts = async () => {
-      try {
-        const res = await api.get("/accounts");
-        setAccounts(res.data);
-      } catch (e) {
-        console.error("Failed to load accounts");
-      }
-    };
-    fetchAccounts();
-  }, []);
+  // Filter states
+  const [searchTerm, setSearchTerm] = useState("");
+  const [typeFilter, setTypeFilter] = useState("ALL");
+  const [categoryFilter, setCategoryFilter] = useState("ALL");
 
-  useEffect(() => {
-    fetchTransactions();
-  }, [typeFilter, selectedAccountId]);
-
-  const fetchTransactions = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
-      let url = `/transactions?pageNo=0&pageSize=50`;
-      if (typeFilter !== "ALL") url += `&type=${typeFilter}`;
-      if (selectedAccountId !== "ALL") url += `&accountId=${selectedAccountId}`;
-      
-      const res = await api.get(url);
+      const res = await api.get("/transactions");
       setTransactions(res.data.content || []);
-    } catch (error) {
-      toast.error("Failed to load transactions");
+    } catch (err) {
+      console.error("Failed to load transactions");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm("Are you sure you want to delete this transaction?")) return;
-    try {
-      await api.delete(`/transactions/${id}`);
-      setTransactions(transactions.filter(t => t.id !== id));
-      toast.success("Transaction deleted successfully");
-    } catch (e) {
-      toast.error("Failed to delete transaction");
+  useEffect(() => {
+    loadData();
+    // Check for add-true in URL
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('add') === 'true') {
+      setShowAddModal(true);
     }
+  }, []);
+
+  const handleModalClose = () => {
+    setShowAddModal(false);
+    setEditingTransaction(null);
   };
 
-  const handleReceiptUpload = async (id: number, e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const formData = new FormData();
-    formData.append("file", file);
-    try {
-      const res = await api.post(`/transactions/${id}/receipt`, formData, {
-        headers: { "Content-Type": "multipart/form-data" }
-      });
-      setTransactions(transactions.map(t => t.id === id ? { ...t, receiptUrl: res.data.receiptUrl } : t));
-      toast.success("Receipt uploaded!");
-    } catch (err) {
-      toast.error("Failed to upload receipt");
-    }
-  };
-
-  const filtered = transactions.filter(t => 
-    (t.description || "").toLowerCase().includes(search.toLowerCase()) || 
-    (t.category?.name || "").toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredTransactions = transactions.filter(tx => {
+    const matchesSearch = tx.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesType = typeFilter === "ALL" || tx.type === typeFilter;
+    const matchesCategory = categoryFilter === "ALL" || tx.category?.name?.toUpperCase() === categoryFilter.toUpperCase();
+    return matchesSearch && matchesType && matchesCategory;
+  });
 
   return (
-    <div className="flex flex-col gap-8 pb-12">
+    <div className="flex flex-col gap-10 pb-20">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-10">
         <div>
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-[32px] font-black tracking-tight text-textHeadings dark:text-white leading-none">
-              Portolio Ledger
-            </h1>
-            <PremiumBadge color="indigo">
-              {filtered.length} Records found
-            </PremiumBadge>
+          <div className="flex items-center gap-4 mb-3">
+             <div className="h-0.5 w-10 bg-indigo-500 rounded-full" />
+             <PremiumBadge color="indigo" variant="neon">MY SPENDING LOG</PremiumBadge>
           </div>
-          <p className="text-[14px] font-medium text-textSecondary dark:text-slate-400">
-            A comprehensive history of your financial activities and receipts.
+          <h1 className="text-[54px] font-black tracking-tighter text-slate-900 dark:text-white leading-[0.85] mb-4">
+            Recent Spending
+          </h1>
+          <p className="text-[14px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+            History <span className="h-1 w-1 bg-slate-300 dark:bg-slate-700 rounded-full" /> {transactions.length} Records found
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <PremiumButton variant="secondary" className="!px-4 !py-3 !text-xs !rounded-xl border-gray-100 shadow-none">
-            <Download size={16} /> Export CSV
-          </PremiumButton>
-          <PremiumButton variant="secondary" className="!px-4 !py-3 !text-xs !rounded-xl border-gray-100 shadow-none">
-            <FileText size={16} /> PDF Report
-          </PremiumButton>
-          <PremiumButton className="shadow-xl shadow-primary-500/30">
-            <Plus size={18} strokeWidth={3} />
-            New Activity
-          </PremiumButton>
-        </div>
-      </div>
-
-      {/* Filter Bar */}
-      <PremiumCard variant="white" className="!p-4 grid grid-cols-12 gap-4 items-center">
-        <div className="col-span-12 lg:col-span-5 relative group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-primary-500" size={18} />
-          <input
-            type="text"
-            placeholder="Search by description or category..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-[16px] pl-12 pr-4 py-3.5 text-sm font-bold text-textPrimary dark:text-white focus:outline-none focus:ring-4 focus:ring-primary-500/5 focus:border-primary-500/50 transition-all outline-none"
-          />
-          {search && (
-            <button 
-              onClick={() => setSearch("")}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-textMuted hover:text-textPrimary"
-            >
-              <X size={16} />
-            </button>
-          )}
-        </div>
-
-        <div className="col-span-6 lg:col-span-3 relative">
-          <select
-            value={selectedAccountId}
-            onChange={(e) => setSelectedAccountId(e.target.value === "ALL" ? "ALL" : Number(e.target.value))}
-            className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-[16px] pl-5 pr-10 py-3.5 text-sm font-bold text-textPrimary dark:text-white focus:outline-none appearance-none cursor-pointer outline-none"
+        <div className="flex gap-4">
+          <PremiumButton 
+            variant="ghost"
+            onClick={() => setShowFilters(!showFilters)}
+            className={`shadow-xl h-14 !px-8 !rounded-[20px] ${showFilters ? 'bg-indigo-500 text-white' : ''}`}
           >
-            <option value="ALL">All Portfolios</option>
-            {accounts.map(acc => (
-              <option key={acc.id} value={acc.id}>{acc.accountName}</option>
-            ))}
-          </select>
-          <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-textMuted">
-            <ChevronDown size={14} />
-          </div>
+            <Filter size={18} className="mr-2" />
+            FILTER
+          </PremiumButton>
+          <PremiumButton 
+            onClick={() => setShowAddModal(true)}
+            size="lg"
+            className="shadow-xl shadow-indigo-500/20 h-14 !px-10 !rounded-[20px]"
+          >
+            <Plus size={18} strokeWidth={4} className="mr-2" />
+            ADD RECORD
+          </PremiumButton>
         </div>
-
-        <div className="col-span-6 lg:col-span-4 flex items-center gap-2 p-1 bg-gray-50 dark:bg-white/5 rounded-[18px]">
-          {["ALL", "INCOME", "EXPENSE"].map(filter => (
-            <button
-              key={filter}
-              onClick={() => setTypeFilter(filter as any)}
-              className={`flex-1 py-3.5 rounded-[14px] text-[11px] font-black uppercase tracking-widest transition-all ${
-                typeFilter === filter 
-                  ? "bg-white dark:bg-white/10 text-primary-600 dark:text-white shadow-sm border border-gray-100 dark:border-white/10" 
-                  : "text-textMuted hover:text-textPrimary transition-colors"
-              }`}
-            >
-              {filter}
-            </button>
-          ))}
-        </div>
-      </PremiumCard>
-
-      {/* Results */}
-      <div className="flex flex-col gap-4">
-        <AnimatePresence mode="popLayout">
-          {loading ? (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex flex-col gap-4"
-            >
-              {[1, 2, 3].map(i => (
-                <div key={i} className="h-24 w-full bg-gray-100 dark:bg-white/5 animate-pulse rounded-[24px]" />
-              ))}
-            </motion.div>
-          ) : filtered.length === 0 ? (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="py-20 text-center flex flex-col items-center"
-            >
-              <div className="h-20 w-20 rounded-[28px] bg-gray-50 dark:bg-white/5 flex items-center justify-center mb-6">
-                <Search size={32} className="text-gray-300" />
-              </div>
-              <h3 className="text-xl font-black text-textHeadings dark:text-white tracking-tight">No match found</h3>
-              <p className="text-sm font-medium text-textSecondary dark:text-slate-400 mt-2 max-w-sm">
-                We couldn't find any financial records matching your current filters.
-              </p>
-              <PremiumButton 
-                variant="ghost" 
-                className="mt-6 text-primary-600 font-black"
-                onClick={() => {
-                  setSearch("");
-                  setTypeFilter("ALL");
-                  setSelectedAccountId("ALL");
-                }}
-              >
-                Reset Filters
-              </PremiumButton>
-            </motion.div>
-          ) : (
-            filtered.map((tx, idx) => (
-              <TransactionCard 
-                key={tx.id} 
-                transaction={tx} 
-                index={idx} 
-                onDelete={handleDelete} 
-                onUploadReceipt={handleReceiptUpload} 
-              />
-            ))
-          )}
-        </AnimatePresence>
       </div>
+
+      {/* Modern Filter Bar */}
+      <AnimatePresence>
+        {showFilters && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <PremiumCard variant="white" className="!p-8 mb-4 border-indigo-500/20">
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">SEARCH BY NAME</p>
+                    <div className="relative">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <input 
+                        type="text" 
+                        placeholder="e.g. Starbucks..." 
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-12 pr-4 py-3.5 bg-slate-100 dark:bg-white/5 border-none rounded-2xl text-[14px] font-bold focus:ring-2 ring-indigo-500 transition-all outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">INCOME OR EXPENSE</p>
+                    <div className="flex gap-2">
+                       {['ALL', 'INCOME', 'EXPENSE'].map(t => (
+                         <button 
+                          key={t}
+                          onClick={() => setTypeFilter(t)}
+                          className={`flex-1 py-3 text-[11px] font-black rounded-xl border transition-all ${typeFilter === t ? 'bg-indigo-500 text-white border-indigo-500' : 'bg-transparent border-slate-200 dark:border-white/10 text-slate-500'}`}
+                         >
+                           {t}
+                         </button>
+                       ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">SELECT CATEGORY</p>
+                    <select 
+                      value={categoryFilter}
+                      onChange={(e) => setCategoryFilter(e.target.value)}
+                      className="w-full px-4 py-3.5 bg-slate-100 dark:bg-white/5 border-none rounded-2xl text-[14px] font-bold focus:ring-2 ring-indigo-500 transition-all outline-none appearance-none"
+                    >
+                      <option value="ALL">All Categories</option>
+                      <option value="FOOD">Food & Drink</option>
+                      <option value="TRANSPORT">Travel</option>
+                      <option value="UTILITIES">Bills</option>
+                      <option value="ENTERTAINMENT">Fun</option>
+                      <option value="HEALTH">Health</option>
+                      <option value="SALARY">Salary</option>
+                      <option value="SHOPPING">Shopping</option>
+                      <option value="OTHER">Other</option>
+                    </select>
+                  </div>
+               </div>
+            </PremiumCard>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="grid grid-cols-12 gap-8">
+        {/* Main List */}
+        <div className="col-span-12 lg:col-span-12">
+           <PremiumCard variant="white" className="!p-0 overflow-hidden shadow-2xl">
+              <div className="p-8 border-b border-slate-100 dark:border-white/5 flex items-center justify-between bg-slate-50/50 dark:bg-white/5">
+                 <div className="flex items-center gap-4">
+                    <div className="h-10 w-10 rounded-xl bg-indigo-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
+                       <Receipt size={20} strokeWidth={2.5} />
+                    </div>
+                    <div>
+                       <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">LIST OF SPENDING</h3>
+                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{filteredTransactions.length} Items Listed</p>
+                    </div>
+                 </div>
+                 <div className="hidden sm:flex items-center gap-4">
+                    <button className="p-3 bg-white dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl text-slate-500 hover:text-indigo-500 transition-colors">
+                       <Download size={18} />
+                    </button>
+                    <button className="p-3 bg-white dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl text-slate-500 hover:text-indigo-500 transition-colors">
+                       <ArrowUpDown size={18} />
+                    </button>
+                 </div>
+              </div>
+
+              <div className="divide-y divide-slate-50 dark:divide-white/5">
+                {loading ? (
+                  Array(5).fill(0).map((_, i) => (
+                    <div key={i} className="p-8 animate-pulse flex items-center gap-6">
+                       <div className="w-12 h-12 bg-slate-100 dark:bg-white/5 rounded-2xl" />
+                       <div className="flex-1 space-y-3">
+                          <div className="h-4 bg-slate-100 dark:bg-white/5 rounded w-1/4" />
+                          <div className="h-2 bg-slate-100 dark:bg-white/5 rounded w-1/6" />
+                       </div>
+                       <div className="w-24 h-8 bg-slate-100 dark:bg-white/5 rounded-2xl" />
+                    </div>
+                  ))
+                ) : filteredTransactions.length > 0 ? (
+                  filteredTransactions.map((tx, i) => (
+                    <TransactionCard 
+                      key={tx.id} 
+                      transaction={tx} 
+                      index={i}
+                      onDelete={async (id) => {
+                        if (window.confirm("Delete this record?")) {
+                          await api.delete(`/transactions/${id}`);
+                          loadData();
+                        }
+                      }}
+                      onEdit={(tx) => {
+                        setEditingTransaction(tx);
+                        setShowAddModal(true);
+                      }}
+                      onUploadReceipt={async (id, e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const formData = new FormData();
+                          formData.append("file", file);
+                          await api.post(`/transactions/${id}/receipt`, formData);
+                          loadData();
+                        }
+                      }}
+                    />
+                  ))
+                ) : (
+                  <div className="p-20 flex flex-col items-center text-center">
+                    <div className="h-20 w-20 bg-slate-100 dark:bg-white/5 rounded-full flex items-center justify-center text-slate-300 mb-6">
+                       <Search size={40} />
+                    </div>
+                    <h4 className="text-xl font-black text-slate-800 dark:text-white uppercase mb-2">Nothing found</h4>
+                    <p className="text-slate-500 uppercase text-[10px] font-black tracking-widest">Try changing your search filters.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Pagination */}
+              <div className="p-8 bg-slate-50/50 dark:bg-white/5 flex items-center justify-between border-t border-slate-100 dark:border-white/5">
+                 <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">PAGE 1 OF 1</p>
+                 <div className="flex gap-2">
+                    <button className="p-3 bg-white dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl text-slate-300 cursor-not-allowed">
+                       <ChevronLeft size={18} />
+                    </button>
+                    <button className="p-3 bg-white dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl text-slate-300 cursor-not-allowed">
+                       <ChevronRight size={18} />
+                    </button>
+                 </div>
+              </div>
+           </PremiumCard>
+        </div>
+      </div>
+
+      {/* Add Modal */}
+      <AnimatePresence>
+        {showAddModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+             <motion.div 
+               initial={{ opacity: 0 }}
+               animate={{ opacity: 1 }}
+               exit={{ opacity: 0 }}
+               onClick={() => setShowAddModal(false)}
+               className="absolute inset-0 bg-slate-950/60 backdrop-blur-md"
+             />
+             <motion.div 
+               initial={{ opacity: 0, scale: 0.95, y: 20 }}
+               animate={{ opacity: 1, scale: 1, y: 0 }}
+               exit={{ opacity: 0, scale: 0.95, y: 20 }}
+               className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto scrollbar-hide z-10"
+             >
+                <TransactionForm 
+                  initialData={editingTransaction}
+                  onSuccess={() => { handleModalClose(); loadData(); }} 
+                  onCancel={handleModalClose} 
+                />
+             </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
