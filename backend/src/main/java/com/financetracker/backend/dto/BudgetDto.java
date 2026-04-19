@@ -7,19 +7,31 @@ import java.math.BigDecimal;
 
 public class BudgetDto {
 
+    private Long id;
+    private Long categoryId;
+    private String categoryName;
+
     @NotNull
     @Min(0)
-    private BigDecimal monthlyLimit;
+    private BigDecimal targetAmount;
+
+    private BigDecimal spentAmount;
 
     public BudgetDto() {
     }
 
-    public BigDecimal getMonthlyLimit() {
-        return monthlyLimit;
-    }
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
 
-    public void setMonthlyLimit(BigDecimal monthlyLimit) {
-        this.monthlyLimit = monthlyLimit;
-    }
+    public Long getCategoryId() { return categoryId; }
+    public void setCategoryId(Long categoryId) { this.categoryId = categoryId; }
+
+    public String getCategoryName() { return categoryName; }
+    public void setCategoryName(String categoryName) { this.categoryName = categoryName; }
+
+    public BigDecimal getTargetAmount() { return targetAmount; }
+    public void setTargetAmount(BigDecimal targetAmount) { this.targetAmount = targetAmount; }
+
+    public BigDecimal getSpentAmount() { return spentAmount; }
+    public void setSpentAmount(BigDecimal spentAmount) { this.spentAmount = spentAmount; }
 }
-

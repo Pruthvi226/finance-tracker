@@ -24,9 +24,11 @@ const BudgetPage = () => {
       try {
         setLoading(true);
         const res = await api.get("/budgets");
-        setBudgets(res.data);
+        // Ensure we always have an array even if backend returns null
+        setBudgets(Array.isArray(res.data) ? res.data : []);
       } catch (err: any) {
         toast.error(err.message || "Failed to load budgets");
+        setBudgets([]);
       } finally {
         setLoading(false);
       }
@@ -73,7 +75,9 @@ const BudgetPage = () => {
                  <PremiumBadge color="indigo">PLANNING</PremiumBadge>
               </div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Set Budget</p>
-              <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter">₹54,000</h3>
+              <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter">
+                ₹{budgets.reduce((acc, b) => acc + (b.targetAmount || 0), 0).toLocaleString()}
+              </h3>
            </PremiumCard>
            
            <PremiumCard variant="white" className="!p-8 group overflow-hidden">
@@ -84,7 +88,9 @@ const BudgetPage = () => {
                  <PremiumBadge color="emerald">ON TRACK</PremiumBadge>
               </div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Spent So Far</p>
-              <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter">₹21,450</h3>
+              <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter">
+                ₹{budgets.reduce((acc, b) => acc + (b.spentAmount || 0), 0).toLocaleString()}
+              </h3>
            </PremiumCard>
 
            <PremiumCard variant="white" className="!p-8 group overflow-hidden">
@@ -95,7 +101,9 @@ const BudgetPage = () => {
                  <PremiumBadge color="rose">ALERTS</PremiumBadge>
               </div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Over Budget Items</p>
-              <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter">02</h3>
+              <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter">
+                {String(budgets.filter(b => (b.spentAmount || 0) > (b.targetAmount || 0)).length).padStart(2, '0')}
+              </h3>
            </PremiumCard>
         </div>
 
@@ -117,7 +125,9 @@ const BudgetPage = () => {
                       <div key={i} className="h-48 bg-slate-100 dark:bg-white/5 rounded-3xl animate-pulse" />
                     ))
                  ) : budgets.map((b, i) => {
-                    const progress = (b.spentAmount / b.targetAmount) * 100;
+                    const targetVal = b.targetAmount || 0;
+                    const spentVal = b.spentAmount || 0;
+                    const progress = targetVal > 0 ? (spentVal / targetVal) * 100 : 0;
                     const isHigh = progress > 85;
                     
                     return (
@@ -136,13 +146,13 @@ const BudgetPage = () => {
                          </div>
 
                          <div className="mb-8">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">FOR {b.categoryName}</p>
-                            <h4 className="text-xl font-black text-slate-900 dark:text-white tracking-tighter uppercase">{b.categoryName} BUDGET</h4>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">FOR {b.categoryName || 'Global'}</p>
+                            <h4 className="text-xl font-black text-slate-900 dark:text-white tracking-tighter uppercase">{b.categoryName || 'General'} BUDGET</h4>
                          </div>
 
                          <div className="space-y-4">
                             <div className="flex justify-between items-end">
-                               <p className="text-[11px] font-bold text-slate-500">₹{b.spentAmount.toLocaleString()} / ₹{b.targetAmount.toLocaleString()}</p>
+                               <p className="text-[11px] font-bold text-slate-500">₹{spentVal.toLocaleString()} / ₹{targetVal.toLocaleString()}</p>
                                <p className="text-lg font-black text-slate-900 dark:text-white">{Math.round(progress)}%</p>
                             </div>
                             <div className="w-full h-2 bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden">
