@@ -1,9 +1,22 @@
 import { useState, useEffect } from "react";
 import api from "../services/api";
 import toast from "react-hot-toast";
-import AddIcon from "@mui/icons-material/Add";
-import SearchIcon from "@mui/icons-material/Search";
+import { 
+  Plus, 
+  Search, 
+  Download, 
+  FileText, 
+  Filter,
+  BarChart3,
+  Calendar,
+  X,
+  ChevronDown
+} from "lucide-react";
 import { TransactionCard } from "../components/Transactions/TransactionCard";
+import { PremiumCard } from "../components/ui/PremiumCard";
+import { PremiumButton } from "../components/ui/PremiumButton";
+import { PremiumBadge } from "../components/ui/PremiumBadge";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface Transaction {
   id: number;
@@ -57,13 +70,13 @@ const TransactionsPage = () => {
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm("Delete transaction?")) return;
+    if (!window.confirm("Are you sure you want to delete this transaction?")) return;
     try {
       await api.delete(`/transactions/${id}`);
       setTransactions(transactions.filter(t => t.id !== id));
-      toast.success("Transaction deleted");
+      toast.success("Transaction deleted successfully");
     } catch (e) {
-      toast.error("Failed to delete");
+      toast.error("Failed to delete transaction");
     }
   };
 
@@ -83,84 +96,148 @@ const TransactionsPage = () => {
     }
   };
 
-  const filtered = transactions.filter(t => t.description.toLowerCase().includes(search.toLowerCase()));
+  const filtered = transactions.filter(t => 
+    (t.description || "").toLowerCase().includes(search.toLowerCase()) || 
+    (t.category?.name || "").toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
+    <div className="flex flex-col gap-8 pb-12">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h1 className="text-4xl font-black tracking-tight text-textHeadings dark:text-slate-50 uppercase">Transactions</h1>
-          <p className="text-sm font-black text-textSecondary dark:text-slate-400 mt-2 uppercase tracking-widest">Manage your global ledger</p>
+          <div className="flex items-center gap-3 mb-2">
+            <h1 className="text-[32px] font-black tracking-tight text-textHeadings dark:text-white leading-none">
+              Portolio Ledger
+            </h1>
+            <PremiumBadge color="indigo">
+              {filtered.length} Records found
+            </PremiumBadge>
+          </div>
+          <p className="text-[14px] font-medium text-textSecondary dark:text-slate-400">
+            A comprehensive history of your financial activities and receipts.
+          </p>
         </div>
-        <button className="btn-primary">
-          <AddIcon sx={{ fontSize: 20 }} /> New Transaction
-        </button>
+
+        <div className="flex items-center gap-3">
+          <PremiumButton variant="secondary" className="!px-4 !py-3 !text-xs !rounded-xl border-gray-100 shadow-none">
+            <Download size={16} /> Export CSV
+          </PremiumButton>
+          <PremiumButton variant="secondary" className="!px-4 !py-3 !text-xs !rounded-xl border-gray-100 shadow-none">
+            <FileText size={16} /> PDF Report
+          </PremiumButton>
+          <PremiumButton className="shadow-xl shadow-primary-500/30">
+            <Plus size={18} strokeWidth={3} />
+            New Activity
+          </PremiumButton>
+        </div>
       </div>
 
-      <div className="glass-card flex flex-col sm:flex-row gap-4 justify-between items-center p-6">
-        <div className="relative w-full sm:w-96 group">
-          <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-primary-600 transition-transform group-focus-within:scale-110" fontSize="small" />
+      {/* Filter Bar */}
+      <PremiumCard variant="white" className="!p-4 grid grid-cols-12 gap-4 items-center">
+        <div className="col-span-12 lg:col-span-5 relative group">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-primary-500" size={18} />
           <input
             type="text"
-            placeholder="SEARCH TRANSACTIONS..."
+            placeholder="Search by description or category..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="input-field pl-12 font-black uppercase tracking-widest text-[10px]"
+            className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-[16px] pl-12 pr-4 py-3.5 text-sm font-bold text-textPrimary dark:text-white focus:outline-none focus:ring-4 focus:ring-primary-500/5 focus:border-primary-500/50 transition-all outline-none"
           />
+          {search && (
+            <button 
+              onClick={() => setSearch("")}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-textMuted hover:text-textPrimary"
+            >
+              <X size={16} />
+            </button>
+          )}
         </div>
-        <div className="flex bg-gray-50 dark:bg-slate-950/40 p-1.5 rounded-xl border border-border dark:border-white/5 items-center gap-2 shadow-inner">
-          {/* Account Filter Dropdown */}
+
+        <div className="col-span-6 lg:col-span-3 relative">
           <select
             value={selectedAccountId}
             onChange={(e) => setSelectedAccountId(e.target.value === "ALL" ? "ALL" : Number(e.target.value))}
-            className="bg-transparent text-textHeadings dark:text-slate-200 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 focus:outline-none cursor-pointer hover:text-primary-600 transition-colors"
+            className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-[16px] pl-5 pr-10 py-3.5 text-sm font-bold text-textPrimary dark:text-white focus:outline-none appearance-none cursor-pointer outline-none"
           >
-            <option value="ALL">All Accounts</option>
+            <option value="ALL">All Portfolios</option>
             {accounts.map(acc => (
-              <option key={acc.id} value={acc.id} className="bg-slate-900">{acc.accountName.toUpperCase()}</option>
+              <option key={acc.id} value={acc.id}>{acc.accountName}</option>
             ))}
           </select>
-          <div className="w-[1px] h-4 bg-white/10 mx-1" />
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-textMuted">
+            <ChevronDown size={14} />
+          </div>
+        </div>
+
+        <div className="col-span-6 lg:col-span-4 flex items-center gap-2 p-1 bg-gray-50 dark:bg-white/5 rounded-[18px]">
           {["ALL", "INCOME", "EXPENSE"].map(filter => (
             <button
               key={filter}
               onClick={() => setTypeFilter(filter as any)}
-              className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-                typeFilter === filter ? "bg-primary-600 text-white shadow-lg shadow-primary-600/20" : "text-textSecondary dark:text-slate-400 hover:text-textHeadings dark:hover:text-slate-200"
+              className={`flex-1 py-3.5 rounded-[14px] text-[11px] font-black uppercase tracking-widest transition-all ${
+                typeFilter === filter 
+                  ? "bg-white dark:bg-white/10 text-primary-600 dark:text-white shadow-sm border border-gray-100 dark:border-white/10" 
+                  : "text-textMuted hover:text-textPrimary transition-colors"
               }`}
             >
               {filter}
             </button>
           ))}
         </div>
-      </div>
+      </PremiumCard>
 
-      <div className="flex flex-col gap-4 mt-8">
-        {loading ? (
-          <div className="glass-card p-12 flex items-center justify-center text-slate-400">
-            <span className="flex items-center gap-2"><svg className="animate-spin h-5 w-5 text-primary-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Loading...</span>
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="glass-card p-16 flex flex-col items-center justify-center text-center">
-             <div className="h-16 w-16 mb-4 rounded-full bg-slate-800/50 flex items-center justify-center border border-white/5">
-                <SearchIcon sx={{ fontSize: 32 }} className="text-slate-500" />
-             </div>
-             <h3 className="text-lg font-bold text-textPrimary dark:text-slate-100">No transactions found</h3>
-             <p className="text-sm text-textMuted dark:text-slate-400 mt-2 max-w-sm font-bold">
-                We couldn't find any data matching your current filters. Try relaxing the search terms or adding a new transaction.
-             </p>
-          </div>
-        ) : (
-          filtered.map((tx, idx) => (
-            <TransactionCard 
-              key={tx.id} 
-              transaction={tx} 
-              index={idx} 
-              onDelete={handleDelete} 
-              onUploadReceipt={handleReceiptUpload} 
-            />
-          ))
-        )}
+      {/* Results */}
+      <div className="flex flex-col gap-4">
+        <AnimatePresence mode="popLayout">
+          {loading ? (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex flex-col gap-4"
+            >
+              {[1, 2, 3].map(i => (
+                <div key={i} className="h-24 w-full bg-gray-100 dark:bg-white/5 animate-pulse rounded-[24px]" />
+              ))}
+            </motion.div>
+          ) : filtered.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="py-20 text-center flex flex-col items-center"
+            >
+              <div className="h-20 w-20 rounded-[28px] bg-gray-50 dark:bg-white/5 flex items-center justify-center mb-6">
+                <Search size={32} className="text-gray-300" />
+              </div>
+              <h3 className="text-xl font-black text-textHeadings dark:text-white tracking-tight">No match found</h3>
+              <p className="text-sm font-medium text-textSecondary dark:text-slate-400 mt-2 max-w-sm">
+                We couldn't find any financial records matching your current filters.
+              </p>
+              <PremiumButton 
+                variant="ghost" 
+                className="mt-6 text-primary-600 font-black"
+                onClick={() => {
+                  setSearch("");
+                  setTypeFilter("ALL");
+                  setSelectedAccountId("ALL");
+                }}
+              >
+                Reset Filters
+              </PremiumButton>
+            </motion.div>
+          ) : (
+            filtered.map((tx, idx) => (
+              <TransactionCard 
+                key={tx.id} 
+                transaction={tx} 
+                index={idx} 
+                onDelete={handleDelete} 
+                onUploadReceipt={handleReceiptUpload} 
+              />
+            ))
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

@@ -2,29 +2,29 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import toast from "react-hot-toast";
-import { Line, Pie } from "react-chartjs-2";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  ArcElement,
-  Tooltip,
-  Legend,
-} from "chart.js";
-import Skeleton from "@mui/material/Skeleton";
-import TrendingUpIcon from "@mui/icons-material/TrendingUp";
-import TrendingDownIcon from "@mui/icons-material/TrendingDown";
-import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
-import ReceiptIcon from "@mui/icons-material/Receipt";
-import SavingsIcon from "@mui/icons-material/Savings";
-import MonetizationOnIcon from "@mui/icons-material/MonetizationOn";
-import FinancialHealthCard from "../components/Dashboard/FinancialHealthCard";
+import { 
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer 
+} from "recharts";
+import { 
+  Plus, 
+  ArrowUpRight, 
+  ArrowDownRight, 
+  Wallet, 
+  PiggyBank, 
+  ChevronDown,
+  Sparkles,
+  TrendingUp,
+  Receipt,
+  Target
+} from "lucide-react";
+import { motion } from "framer-motion";
 import { StatCard } from "../components/Dashboard/StatCard";
-import { ChartCard } from "../components/Dashboard/ChartCard";
+import { PremiumCard } from "../components/ui/PremiumCard";
+import { PremiumButton } from "../components/ui/PremiumButton";
+import { PremiumBadge } from "../components/ui/PremiumBadge";
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, ArcElement, Tooltip, Legend);
+
+const CURRENCY_SYMBOL = "₹";
 
 type Dashboard = {
   totalIncome: number;
@@ -60,8 +60,6 @@ type Goal = {
 
 type BudgetStatus = { remaining: number; exceeded: boolean };
 
-const CURRENCY_SYMBOL = "₹";
-
 const formatAmount = (value: number) =>
   `${CURRENCY_SYMBOL}${value.toLocaleString("en-IN", {
     minimumFractionDigits: 2,
@@ -73,10 +71,7 @@ const pctChange = (current: number, prev: number) => {
   return ((current - prev) / Math.abs(prev)) * 100;
 };
 
-const clampPct = (v: number) => Math.max(-999, Math.min(999, v));
-
 const formatMonth = (ym: string) => {
-  // ym: yyyy-MM
   const [y, m] = ym.split("-").map((x) => Number(x));
   if (!y || !m) return ym;
   const d = new Date(y, m - 1, 1);
@@ -88,7 +83,6 @@ const DashboardPage = () => {
 
   const [summary, setSummary] = useState<Dashboard | null>(null);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
-  const [budgetStatus, setBudgetStatus] = useState<BudgetStatus | null>(null);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [recent, setRecent] = useState<TransactionApi[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
@@ -164,431 +158,371 @@ const DashboardPage = () => {
   }, [prevIncome, prevExpense]);
 
   const spendingTrendData = useMemo(() => {
-    if (!analytics) return null;
+    if (!analytics) return [];
     const months = Object.keys(analytics.monthlyExpenses || {}).sort();
     const labels = months.slice(-6);
-    const values = labels.map((m) => Number(analytics.monthlyExpenses[m] || 0));
-
-    return {
-      labels: labels.map(formatMonth),
-      datasets: [
-        {
-          label: "Spending",
-          data: values,
-          borderColor: "rgba(37, 99, 235, 1)", // primary-600
-          backgroundColor: (context: any) => {
-            const chart = context.chart;
-            const {ctx, chartArea} = chart;
-            if (!chartArea) return null;
-            const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
-            gradient.addColorStop(0, 'rgba(37, 99, 235, 0)');
-            gradient.addColorStop(1, 'rgba(37, 99, 235, 0.15)');
-            return gradient;
-          },
-          tension: 0.4,
-          fill: true,
-          pointRadius: 5,
-          pointBackgroundColor: "#fff",
-          pointBorderColor: "rgba(37, 99, 235, 1)",
-          pointBorderWidth: 2,
-          pointHoverRadius: 7,
-          pointHoverBackgroundColor: "rgba(37, 99, 235, 1)",
-          pointHoverBorderColor: "#fff",
-          pointHoverBorderWidth: 2,
-        },
-      ],
-    };
-  }, [analytics]);
-
-  const categoryPieData = useMemo(() => {
-    if (!analytics) return null;
-    const entries = Object.entries(analytics.categorySpending || {})
-      .map(([k, v]) => [k, Number(v)] as const)
-      .filter(([, v]) => v > 0)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 6);
-
-    return {
-      labels: entries.map(([name]) => name),
-      datasets: [
-        {
-          data: entries.map(([, value]) => value),
-          backgroundColor: ["#2563eb", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"],
-          borderColor: "#fff",
-          borderWidth: 2,
-          hoverOffset: 12,
-        },
-      ],
-    };
+    return labels.map((m) => ({
+      month: formatMonth(m),
+      spending: Number(analytics.monthlyExpenses[m] || 0),
+      income: Number(analytics.monthlyIncome?.[m] || 0)
+    }));
   }, [analytics]);
 
   const cards = useMemo(() => {
     const totalBalance = Number(summary?.remainingBalance ?? 0);
     const totalIncome = Number(summary?.totalIncome ?? 0);
     const totalExpense = Number(summary?.totalExpense ?? 0);
-    const remainingBudget = Number(budgetStatus?.remaining ?? 0);
 
     const incomeDelta = pctChange(Number(currentIncome), Number(prevIncome));
     const expenseDelta = pctChange(Number(currentExpense), Number(prevExpense));
     const savingsDelta = pctChange(currentSavingsRate, prevSavingsRate);
 
+    const incomeTrend = monthKeys.slice(-6).map(m => ({ value: Number(analytics?.monthlyIncome?.[m] || 0) }));
+    const expenseTrend = monthKeys.slice(-6).map(m => ({ value: Number(analytics?.monthlyExpenses?.[m] || 0) }));
+    const balanceTrend = monthKeys.slice(-6).map(m => ({ value: Number(analytics?.monthlyIncome?.[m] || 0) - Number(analytics?.monthlyExpenses?.[m] || 0) }));
+    const savingsTrend = monthKeys.slice(-6).map(m => {
+      const inc = Number(analytics?.monthlyIncome?.[m] || 0);
+      const exp = Number(analytics?.monthlyExpenses?.[m] || 0);
+      return { value: inc ? ((inc - exp) / inc) * 100 : 0 };
+    });
+
     return [
       {
         key: "balance",
-        label: "Total Balance",
-        icon: <AccountBalanceWalletIcon sx={{ fontSize: 18 }} />,
+        label: "Net Worth",
+        icon: <Wallet size={20} strokeWidth={2.5} />,
         value: formatAmount(totalBalance),
-        delta: null as number | null,
-        tone: "neutral" as const,
-        accent: "from-sky-500/20 to-transparent",
+        accent: "sky" as const,
+        sparklineData: balanceTrend,
       },
       {
         key: "income",
-        label: "Total Income",
-        icon: <TrendingUpIcon sx={{ fontSize: 18 }} />,
+        label: "Income",
+        icon: <ArrowUpRight size={20} strokeWidth={2.5} />,
         value: formatAmount(totalIncome),
         delta: incomeDelta,
-        tone: "positive" as const,
-        accent: "from-emerald-500/20 to-transparent",
+        accent: "emerald" as const,
+        sparklineData: incomeTrend,
       },
       {
         key: "expense",
-        label: "Total Expenses",
-        icon: <TrendingDownIcon sx={{ fontSize: 18 }} />,
+        label: "Expenses",
+        icon: <ArrowDownRight size={20} strokeWidth={2.5} />,
         value: formatAmount(totalExpense),
         delta: expenseDelta,
-        tone: "negative" as const,
-        accent: "from-rose-500/20 to-transparent",
+        accent: "rose" as const,
+        sparklineData: expenseTrend,
       },
       {
         key: "savings",
-        label: "Savings Rate",
-        icon: <SavingsIcon sx={{ fontSize: 18 }} />,
+        label: "Savings",
+        icon: <PiggyBank size={20} strokeWidth={2.5} />,
         value: `${currentSavingsRate.toFixed(1)}%`,
         delta: savingsDelta,
-        tone: currentSavingsRate >= 20 ? ("positive" as const) : ("neutral" as const),
-        accent: "from-indigo-500/20 to-transparent",
-      },
-      {
-        key: "budget",
-        label: "Remaining Budget",
-        icon: <MonetizationOnIcon sx={{ fontSize: 18 }} />,
-        value: formatAmount(remainingBudget),
-        delta: null as number | null,
-        tone: budgetStatus?.exceeded ? ("negative" as const) : ("neutral" as const),
-        accent: budgetStatus?.exceeded ? "from-rose-500/20 to-transparent" : "from-amber-500/20 to-transparent",
+        accent: "amber" as const,
+        sparklineData: savingsTrend,
       },
     ];
-  }, [summary, analytics, budgetStatus, currentIncome, prevIncome, currentExpense, prevExpense, currentSavingsRate, prevSavingsRate]);
+  }, [summary, analytics, currentIncome, prevIncome, currentExpense, prevExpense, currentSavingsRate, prevSavingsRate, monthKeys]);
 
   const insights = useMemo(() => {
-    const list: string[] = [];
+    const list: { text: string; sub: string; icon: string; color: "emerald" | "rose" | "amber" }[] = [];
     const expDelta = pctChange(Number(currentExpense), Number(prevExpense));
+    
     if (expDelta !== null) {
-      const dir = expDelta > 0 ? "more" : "less";
-      list.push(`You spent ${Math.abs(clampPct(expDelta)).toFixed(0)}% ${dir} than last month.`);
+      const isUp = expDelta > 0;
+      list.push({
+        text: `Monthly spending is ${isUp ? 'higher' : 'lower'}`,
+        sub: `You spent ${Math.abs(expDelta).toFixed(0)}% ${isUp ? 'more' : 'less'} than last month.`,
+        icon: isUp ? '📈' : '📉',
+        color: isUp ? 'rose' : 'emerald'
+      });
     }
+
     const savDelta = pctChange(currentSavingsRate, prevSavingsRate);
     if (savDelta !== null) {
-      const dir = savDelta > 0 ? "improved" : "declined";
-      list.push(`Your savings rate ${dir} compared to last month.`);
+      const isUp = savDelta > 0;
+      list.push({
+        text: `Savings rate ${isUp ? 'improved' : 'dropped'}`,
+        sub: `Your savings efficiency changed by ${Math.abs(savDelta).toFixed(1)}% this month.`,
+        icon: '💰',
+        color: isUp ? 'emerald' : 'amber'
+      });
     }
-    if (!list.length) {
-      list.push("Add a few transactions to unlock insights.");
-    }
-    return list.slice(0, 2);
+
+    return list;
   }, [currentExpense, prevExpense, currentSavingsRate, prevSavingsRate]);
 
-  const hasAnyData = Boolean(
-    (summary && (Number(summary.totalIncome) > 0 || Number(summary.totalExpense) > 0)) ||
-      (analytics && (Object.keys(analytics.monthlyExpenses || {}).length > 0 || Object.keys(analytics.categorySpending || {}).length > 0)) ||
-      recent.length > 0,
-  );
-
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-start justify-between gap-3 mb-4">
+    <div className="flex flex-col gap-8 pb-12">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-4xl font-black tracking-tight text-textHeadings dark:text-slate-50 uppercase">Dashboard</h1>
-            {budgetStatus?.exceeded && (
-              <span className="text-[10px] uppercase tracking-widest px-3 py-1.5 rounded-xl bg-rose-600 text-white font-black shadow-lg shadow-rose-600/20">
-                Budget Exceeded
-              </span>
-            )}
+          <div className="flex items-center gap-3 mb-2">
+            <h1 className="text-[32px] font-black tracking-tight text-textHeadings dark:text-white leading-none">
+              Financial Overview
+            </h1>
+            <PremiumBadge color="indigo" pulse>
+              <Sparkles size={12} className="fill-indigo-500" />
+              Live Analytics
+            </PremiumBadge>
           </div>
-          <p className="text-sm font-black text-textSecondary dark:text-slate-400 mt-2 uppercase tracking-widest">
-            Your financial overview
+          <p className="text-[14px] font-medium text-textSecondary dark:text-slate-400">
+            Welcome back, Pruthviraj. Here's what's happening with your wealth today.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Account Selector */}
           <div className="relative group">
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-primary-600 z-10 transition-transform group-hover:scale-110">
-              <AccountBalanceWalletIcon sx={{ fontSize: 18 }} />
-            </div>
             <select
               value={selectedAccountId}
               onChange={(e) => setSelectedAccountId(e.target.value === "ALL" ? "ALL" : Number(e.target.value))}
-              className="bg-white dark:bg-slate-900/60 border border-border dark:border-white/10 rounded-2xl pl-12 pr-10 py-3.5 text-xs font-black text-textHeadings dark:text-slate-100 focus:outline-none focus:ring-4 focus:ring-primary-500/10 appearance-none min-w-[220px] cursor-pointer shadow-sm transition-all uppercase tracking-widest"
+              className="bg-white/80 dark:bg-white/5 backdrop-blur-md border border-gray-100 dark:border-white/10 rounded-[18px] pl-5 pr-12 py-3.5 text-[13px] font-bold text-textPrimary dark:text-slate-100 focus:outline-none focus:ring-4 focus:ring-primary-500/10 appearance-none min-w-[200px] cursor-pointer shadow-sm transition-all"
             >
-              <option value="ALL">All Accounts</option>
+              <option value="ALL">All Portfolios</option>
               {accounts.map(acc => (
-                <option key={acc.id} value={acc.id}>{acc.accountName.toUpperCase()}</option>
+                <option key={acc.id} value={acc.id}>{acc.accountName}</option>
               ))}
             </select>
             <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-textMuted">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7"></path></svg>
+              <ChevronDown size={14} />
             </div>
           </div>
-          <button
-            className="btn-primary"
+          
+          <PremiumButton 
             onClick={() => navigate("/transactions")}
+            className="shadow-xl shadow-primary-500/30"
           >
-            Add New
-          </button>
+            <Plus size={18} strokeWidth={3} />
+            Add Activity
+          </PremiumButton>
         </div>
       </div>
 
-      {!loading && !hasAnyData ? (
-        <div className="glass-card p-12 text-center flex flex-col items-center">
-          <h2 className="text-xl font-bold text-textPrimary dark:text-slate-100">Welcome to Finance Tracker!</h2>
-          <p className="text-textSecondary dark:text-slate-400 mt-2 max-w-md font-medium">
-            Add your first transaction to unlock your dashboard, charts, and AI-driven insights.
-          </p>
-          <div className="mt-8 flex gap-4">
-            <button className="btn-primary" onClick={() => navigate("/transactions")}>
-              Add Transaction
-            </button>
-            <button className="btn-secondary" onClick={() => navigate("/budget")}>
-              Setup Budget
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-12 gap-4">
-          {/* KPI cards */}
-          <div className="col-span-12">
-            <div className="grid grid-cols-12 gap-4">
-              {cards.map((c, idx) => (
-                <StatCard 
-                  key={c.key}
-                  title={c.label}
-                  value={c.value}
-                  icon={c.icon}
-                  accent={c.key === 'expense' ? 'rose' : c.key === 'income' ? 'emerald' : c.key === 'savings' ? 'indigo' : c.key === 'budget' && c.tone === 'negative' ? 'rose' : c.key === 'budget' ? 'amber' : 'sky'}
-                  delta={c.delta}
-                  loading={loading}
-                  delayIndex={idx}
-                />
-              ))}
+      {/* Metric Cards Grid */}
+      <div className="grid grid-cols-12 gap-6">
+        {cards.map((c, idx) => (
+          <StatCard 
+            key={c.key}
+            title={c.label}
+            value={c.value}
+            icon={c.icon}
+            accent={c.accent}
+            delta={c.delta || 0}
+            loading={loading}
+            delayIndex={idx}
+            sparklineData={c.sparklineData}
+          />
+        ))}
+      </div>
+
+      {/* Main Content Area */}
+      <div className="grid grid-cols-12 gap-8">
+        
+        {/* Main Analytics Chart */}
+        <PremiumCard variant="white" className="col-span-12 lg:col-span-8 !p-0">
+          <div className="p-8 border-b border-gray-50 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-xl font-black text-textHeadings dark:text-white tracking-tight">Spending Flow</h3>
+              <p className="text-xs font-bold text-textMuted uppercase tracking-widest mt-1">Monthly Income vs Expenses</p>
+            </div>
+            <div className="flex items-center gap-2 p-1 bg-gray-50 dark:bg-white/5 rounded-[14px]">
+              <button className="px-4 py-1.5 rounded-xl text-[11px] font-black bg-white dark:bg-white/10 shadow-sm">6 MONTHS</button>
+              <button className="px-4 py-1.5 rounded-xl text-[11px] font-black text-textMuted hover:text-textPrimary transition-colors">1 YEAR</button>
             </div>
           </div>
 
-          {/* Charts row */}
-          <ChartCard 
-            title="Monthly Spending Trend" 
-            subtitle="Last 6 months trailing analysis"
-            delayIndex={4}
-          >
-            <div className="w-full h-[300px]">
-              {spendingTrendData ? (
-                <Line
-                  data={spendingTrendData}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                      legend: { display: false },
-                      tooltip: { enabled: true, mode: 'index', intersect: false },
-                    },
-                    scales: {
-                      x: { ticks: { color: "#64748b", font: { weight: 'bold' } }, grid: { display: false } },
-                      y: { ticks: { color: "#64748b", font: { weight: 'bold' } }, grid: { color: "rgba(0,0,0,0.05)" } },
-                    },
-                    interaction: { mode: 'nearest', axis: 'x', intersect: false }
+          <div className="p-8 h-[380px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={spendingTrendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2}/>
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="6 6" vertical={false} stroke="rgba(0,0,0,0.03)" />
+                <XAxis 
+                  dataKey="month" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 700 }} 
+                  dy={15} 
+                />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 700 }} 
+                  dx={-10} 
+                />
+                <RechartsTooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)', 
+                    borderRadius: '20px', 
+                    border: 'none', 
+                    boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
+                    padding: '16px'
                   }}
+                  itemStyle={{ fontWeight: 800, fontSize: '13px' }}
                 />
-              ) : (
-                <Skeleton variant="rounded" height="100%" sx={{ bgcolor: 'rgba(255,255,255,0.05)' }} />
-              )}
-            </div>
-          </ChartCard>
+                <Area 
+                  type="monotone" 
+                  dataKey="income" 
+                  stroke="#10b981" 
+                  strokeWidth={4} 
+                  fillOpacity={1} 
+                  fill="url(#colorIncome)" 
+                  animationDuration={2000} 
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="spending" 
+                  stroke="#6366f1" 
+                  strokeWidth={4} 
+                  fillOpacity={1} 
+                  fill="url(#colorExpense)" 
+                  animationDuration={2000} 
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </PremiumCard>
 
-          <aside className="col-span-12 lg:col-span-4 flex flex-col gap-4">
-            <ChartCard 
-              title="Distribution" 
-              subtitle="Top categories"
-              delayIndex={5}
-            >
-              <div className="w-full h-[300px] flex items-center justify-center">
-                {categoryPieData ? (
-                  <Pie
-                    data={categoryPieData}
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: false,
-                      plugins: {
-                        legend: {
-                          position: "bottom",
-                          labels: { color: "#475569", boxWidth: 10, padding: 20, font: { family: 'inherit', weight: 'bold', size: 11 } },
-                        },
-                      },
-                      cutout: '65%'
-                    }}
-                  />
-                ) : (
-                  <Skeleton variant="circular" width={240} height={240} sx={{ bgcolor: 'rgba(255,255,255,0.05)' }} />
-                )}
-              </div>
-            </ChartCard>
-          </aside>
+        {/* Right Sidebar: Smart Insights & Goal Preview */}
+        <div className="col-span-12 lg:col-span-4 flex flex-col gap-8">
+          
+          {/* AI Insights */}
+          <div className="flex flex-col gap-4">
+            <h4 className="text-sm font-black uppercase tracking-[0.2em] text-textMuted px-1">Smart Insights</h4>
+            {insights.map((ins, i) => (
+              <PremiumCard key={i} variant={ins.color} className="!p-5 border-none shadow-none">
+                <div className="flex gap-4">
+                  <div className="h-12 w-12 rounded-2xl bg-white dark:bg-white/10 flex items-center justify-center text-xl shrink-0 shadow-sm">
+                    {ins.icon}
+                  </div>
+                  <div>
+                    <h5 className="font-black text-[15px] tracking-tight">{ins.text}</h5>
+                    <p className="text-[12px] font-medium text-textSecondary dark:text-slate-400 mt-1 leading-relaxed">
+                      {ins.sub}
+                    </p>
+                  </div>
+                </div>
+              </PremiumCard>
+            ))}
+          </div>
 
-          {/* Bottom row */}
-          <section className="col-span-12 lg:col-span-8 glass-card overflow-hidden">
-            <div className="p-8 border-b border-border dark:border-white/5 bg-gray-50/50 dark:bg-transparent flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-black text-textHeadings dark:text-slate-50 tracking-tight uppercase">Recent Activity</h3>
-                <p className="text-[10px] font-black tracking-widest text-textMuted dark:text-slate-500 uppercase mt-1">Transaction History</p>
-              </div>
-              <button
-                onClick={() => navigate("/transactions")}
-                className="btn-secondary !px-4 !py-2 !text-xs"
-              >
-                View All
+          {/* Savings Goals Preview */}
+          <PremiumCard variant="white" className="p-8">
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="font-black text-lg tracking-tight">Active Goals</h3>
+              <button onClick={() => navigate("/goals")} className="text-[13px] font-black text-primary-600 hover:opacity-70 transition-opacity">
+                VIEW ALL
               </button>
             </div>
-            <div className="px-5 py-2">
-              {loading ? (
-                <Skeleton variant="rounded" height={180} />
-              ) : recent.length === 0 ? (
-                <div className="text-sm text-slate-400 py-4">
-                  No transactions yet. Add your first transaction.
-                </div>
-              ) : (
-                <ul className="divide-y divide-border dark:divide-white/5">
-                  {recent.map((t) => (
-                    <li key={t.id} className="py-4 hover:bg-gray-50/50 dark:hover:bg-white/[0.02] transition-colors -mx-5 px-5 flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-4 min-w-0">
-                        <div
-                          className={`h-11 w-11 rounded-full flex items-center justify-center border ${
-                            t.type === "INCOME" 
-                              ? "bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20" 
-                              : "bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20"
-                          }`}
-                        >
-                          <ReceiptIcon fontSize="small" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-base font-black text-textHeadings dark:text-slate-100 truncate uppercase tracking-tight">{t.description || t.category?.name || "Transaction"}</div>
-                          <div className="text-[10px] font-black text-textSecondary dark:text-slate-400 truncate mt-0.5 uppercase tracking-widest">
-                            {t.category?.name || "Uncategorized"} • {new Date(t.date).toLocaleDateString()}
-                          </div>
-                        </div>
-                      </div>
-                      <div
-                        className={`text-lg font-black whitespace-nowrap ${
-                          t.type === "INCOME" ? "text-emerald-600 dark:text-emerald-400" : "text-textPrimary dark:text-slate-100"
-                        }`}
-                      >
-                        {t.type === "INCOME" ? "+" : "-"}{t.currency} {t.amount.toLocaleString()}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </section>
-          <aside className="col-span-12 lg:col-span-4 flex flex-col gap-4">
-            {/* Financial Health AI */}
-            <div className="flex-none">
-              <FinancialHealthCard />
-            </div>
 
-            {/* Quick actions */}
-            <div className="glass-card p-6">
-              <div className="text-sm font-black text-textHeadings dark:text-slate-100 mb-6 uppercase tracking-widest">Quick Actions</div>
-              <div className="grid grid-cols-2 gap-3">
-                <button className="btn-secondary" onClick={() => navigate("/transactions")}>
-                  Transaction
-                </button>
-                <button className="btn-secondary" onClick={() => navigate("/budget")}>
-                  Budget
-                </button>
-                <button className="btn-secondary" onClick={() => navigate("/goals")}>
-                  Goal
-                </button>
-                <button className="btn-secondary" onClick={() => navigate("/insights")}>
-                  AI Insights
-                </button>
-              </div>
-            </div>
-
-            {/* Goals preview */}
-            <div className="glass-card p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div className="text-sm font-black text-textHeadings dark:text-slate-100 uppercase tracking-widest">Savings Goals</div>
-                <button onClick={() => navigate("/budget")} className="text-sm font-bold text-primary-600 hover:text-primary-700">
-                  View
-                </button>
-              </div>
-              {loading ? (
-                <Skeleton variant="rounded" height={120} />
-              ) : goals.length === 0 ? (
-                <div className="text-sm text-slate-400 py-2">
-                  No active goals. Set one up to motivate your savings.
+            <div className="flex flex-col gap-6">
+              {goals.length === 0 ? (
+                <div className="py-4 text-center">
+                  <div className="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center mx-auto mb-3">
+                    <Target size={20} className="text-gray-300" />
+                  </div>
+                  <p className="text-xs font-bold text-textMuted uppercase">No Active Goals</p>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  {goals.slice(0, 3).map((g) => {
-                    const target = Number(g.targetAmount || 0);
-                    const current = Number(g.currentAmount || 0);
-                    const pct = target > 0 ? Math.min(100, (current / target) * 100) : 0;
-                    return (
-                      <div key={g.id}>
-                        <div className="flex items-center justify-between text-xs">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-lg">{g.icon || "🎯"}</span>
-                            <span className="text-textHeadings dark:text-slate-200 font-black truncate uppercase tracking-tight">{g.name}</span>
-                          </div>
-                          <span className="text-primary-600 dark:text-primary-400 font-black">{pct.toFixed(0)}%</span>
-                        </div>
-                        <div className="mt-2 h-2.5 w-full rounded-full bg-gray-100 dark:bg-slate-950 border border-border dark:border-white/5 overflow-hidden">
-                          <div
-                            className="h-full rounded-full bg-primary-600 relative"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                        <div className="mt-2 text-[10px] text-textMuted dark:text-slate-400 font-black uppercase tracking-widest">
-                          {formatAmount(current)} / {formatAmount(target)}
-                        </div>
+              ) : goals.slice(0, 3).map(g => {
+                const pct = Math.min(100, (g.currentAmount / g.targetAmount) * 100);
+                return (
+                  <div key={g.id} className="flex flex-col gap-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl">{g.icon || "🎯"}</span>
+                        <span className="text-[14px] font-black tracking-tight">{g.name}</span>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+                      <span className="text-[13px] font-black text-primary-600">{pct.toFixed(0)}%</span>
+                    </div>
+                    <div className="h-2 w-full bg-gray-100 dark:bg-white/5 rounded-full overflow-hidden">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${pct}%` }}
+                        transition={{ duration: 1.5, ease: "easeOut" }}
+                        className="h-full bg-gradient-to-r from-primary-500 to-[#8B5CF6] rounded-full"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-
-            {/* Smart insights */}
-            <div className="glass-card p-6 border-l-4 border-l-primary-600 bg-primary-50/30 dark:bg-primary-500/5">
-              <div className="text-sm font-black text-textHeadings dark:text-slate-100 mb-4 flex items-center gap-2 uppercase tracking-widest">
-                <span className="text-primary-600 dark:text-primary-400">✨</span> Quick Tip
-              </div>
-              <ul className="space-y-3">
-                {insights.map((ins, idx) => (
-                  <li key={idx} className="text-xs text-textSecondary dark:text-slate-300 font-black leading-relaxed uppercase tracking-tight">
-                    {ins}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </aside>
+          </PremiumCard>
         </div>
-      )}
+
+        {/* Recent Activity Table */}
+        <PremiumCard variant="white" className="col-span-12 lg:col-span-12 !p-0">
+          <div className="p-8 border-b border-gray-50 dark:border-white/5 flex items-center justify-between">
+            <div>
+              <h3 className="text-xl font-black text-textHeadings dark:text-white tracking-tight">Recent Activity</h3>
+              <p className="text-xs font-bold text-textMuted uppercase tracking-widest mt-1">Transaction History</p>
+            </div>
+            <PremiumButton variant="secondary" onClick={() => navigate("/transactions")} className="!px-4 !py-2 !text-xs !rounded-xl">
+              View History
+            </PremiumButton>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-gray-50 dark:border-white/5">
+                  <th className="px-8 py-4 text-[11px] font-black text-textMuted uppercase tracking-widest">Description</th>
+                  <th className="px-8 py-4 text-[11px] font-black text-textMuted uppercase tracking-widest">Category</th>
+                  <th className="px-8 py-4 text-[11px] font-black text-textMuted uppercase tracking-widest">Date</th>
+                  <th className="px-8 py-4 text-[11px] font-black text-textMuted uppercase tracking-widest text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recent.map((t) => (
+                  <tr key={t.id} className="group hover:bg-gray-50/50 dark:hover:bg-white/[0.02] transition-colors cursor-pointer">
+                    <td className="px-8 py-6">
+                      <div className="flex items-center gap-4">
+                        <div className={`h-11 w-11 rounded-2xl flex items-center justify-center shrink-0 border ${
+                          t.type === "INCOME" 
+                            ? "bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-500/10" 
+                            : "bg-indigo-50 text-indigo-600 border-indigo-100 dark:bg-indigo-500/10"
+                        }`}>
+                          {t.type === "INCOME" ? <TrendingUp size={18} strokeWidth={2.5} /> : <Receipt size={18} strokeWidth={2.5} />}
+                        </div>
+                        <span className="font-black text-[15px] text-textHeadings dark:text-white tracking-tight">{t.description || "Activity"}</span>
+                      </div>
+                    </td>
+                    <td className="px-8 py-6">
+                      <PremiumBadge color={t.type === 'INCOME' ? 'emerald' : 'indigo'}>
+                        {t.category?.name || "Other"}
+                      </PremiumBadge>
+                    </td>
+                    <td className="px-8 py-6">
+                      <span className="text-[13px] font-bold text-textSecondary dark:text-slate-400">
+                        {new Date(t.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </span>
+                    </td>
+                    <td className="px-8 py-6 text-right">
+                      <span className={`text-[16px] font-black tracking-tight ${
+                        t.type === "INCOME" ? "text-emerald-600 dark:text-emerald-400" : "text-textHeadings dark:text-white"
+                      }`}>
+                        {t.type === "INCOME" ? "+" : "-"}{formatAmount(t.amount)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </PremiumCard>
+      </div>
     </div>
   );
 };
 
 export default DashboardPage;
+
 

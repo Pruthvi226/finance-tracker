@@ -2,14 +2,23 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "../services/api";
 import { toast } from "react-hot-toast";
-import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
-import AddIcon from "@mui/icons-material/Add";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
-import SavingsIcon from "@mui/icons-material/Savings";
-import CreditCardIcon from "@mui/icons-material/CreditCard";
-import PhoneIphoneIcon from "@mui/icons-material/PhoneIphone";
-import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
+import { 
+  Landmark, 
+  Wallet, 
+  CreditCard, 
+  Smartphone, 
+  PiggyBank,
+  Plus,
+  Edit2,
+  Trash2,
+  ChevronRight,
+  MoreVertical,
+  ArrowUpRight,
+  ArrowDownRight
+} from "lucide-react";
+import { PremiumCard } from "../components/ui/PremiumCard";
+import { PremiumButton } from "../components/ui/PremiumButton";
+import { PremiumBadge } from "../components/ui/PremiumBadge";
 
 interface Account {
   id: number;
@@ -21,11 +30,19 @@ interface Account {
 }
 
 const accountTypeIcons: Record<string, any> = {
-  BANK_ACCOUNT: AccountBalanceIcon,
-  SAVINGS_ACCOUNT: SavingsIcon,
-  CASH_WALLET: AccountBalanceWalletIcon,
-  UPI_WALLET: PhoneIphoneIcon,
-  CREDIT_CARD: CreditCardIcon,
+  BANK_ACCOUNT: Landmark,
+  SAVINGS_ACCOUNT: PiggyBank,
+  CASH_WALLET: Wallet,
+  UPI_WALLET: Smartphone,
+  CREDIT_CARD: CreditCard,
+};
+
+const accountTypeColors: Record<string, any> = {
+  BANK_ACCOUNT: "indigo",
+  SAVINGS_ACCOUNT: "emerald",
+  CASH_WALLET: "amber",
+  UPI_WALLET: "cyan",
+  CREDIT_CARD: "rose",
 };
 
 const AccountsPage = () => {
@@ -39,7 +56,7 @@ const AccountsPage = () => {
     accountName: "",
     accountType: "BANK_ACCOUNT",
     balance: 0,
-    currency: "USD",
+    currency: "INR",
   });
 
   const fetchAccounts = async () => {
@@ -62,28 +79,28 @@ const AccountsPage = () => {
     try {
       if (editingAccount) {
         await api.put(`/accounts/${editingAccount.id}`, formData);
-        toast.success("Account updated!");
+        toast.success("Account updated successfully");
       } else {
         await api.post("/accounts", formData);
-        toast.success("Account created!");
+        toast.success("Account created successfully");
       }
       setShowModal(false);
       setEditingAccount(null);
-      setFormData({ accountName: "", accountType: "BANK_ACCOUNT", balance: 0, currency: "USD" });
+      setFormData({ accountName: "", accountType: "BANK_ACCOUNT", balance: 0, currency: "INR" });
       fetchAccounts();
     } catch (error) {
-      toast.error("Error saving account");
+      toast.error("Error saving account details");
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm("Are you sure you want to delete this account?")) return;
+    if (!window.confirm("Are you sure you want to delete this account? All associated transactions will be affected.")) return;
     try {
       await api.delete(`/accounts/${id}`);
-      toast.success("Account deleted");
+      toast.success("Account detached successfully");
       fetchAccounts();
     } catch (error) {
-      toast.error("Error deleting account");
+      toast.error("Error deleting financial account");
     }
   };
 
@@ -99,163 +116,222 @@ const AccountsPage = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col gap-8 pb-12">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h1 className="text-4xl font-black text-textHeadings dark:text-slate-100 uppercase tracking-tight">Financial Accounts</h1>
-          <p className="text-sm font-black text-textSecondary dark:text-slate-400 mt-2 uppercase tracking-widest">Manage your banks, wallets, and cards</p>
+          <div className="flex items-center gap-3 mb-2">
+            <h1 className="text-[32px] font-black tracking-tight text-textHeadings dark:text-white leading-none">
+              Portfolios & Assets
+            </h1>
+            <PremiumBadge color="emerald">
+              {accounts.length} Active
+            </PremiumBadge>
+          </div>
+          <p className="text-[14px] font-medium text-textSecondary dark:text-slate-400">
+            Organize your wealth across multiple banks, digital wallets, and cards.
+          </p>
         </div>
-        <button
+
+        <PremiumButton 
           onClick={() => {
             setEditingAccount(null);
-            setFormData({ accountName: "", accountType: "BANK_ACCOUNT", balance: 0, currency: "USD" });
+            setFormData({ accountName: "", accountType: "BANK_ACCOUNT", balance: 0, currency: "INR" });
             setShowModal(true);
           }}
-          className="btn-primary flex items-center gap-2"
+          className="shadow-xl shadow-primary-500/30"
         >
-          <AddIcon />
-          Add Account
-        </button>
+          <Plus size={18} strokeWidth={3} />
+          Create Portfolio
+        </PremiumButton>
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-44 glass-card animate-pulse bg-gray-200/50 dark:bg-slate-800/50" />
+            <div key={i} className="h-48 rounded-[24px] bg-gray-100 dark:bg-white/5 animate-pulse" />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {accounts.map((account) => {
-            const Icon = accountTypeIcons[account.accountType] || AccountBalanceIcon;
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+          {accounts.map((account, idx) => {
+            const Icon = accountTypeIcons[account.accountType] || Landmark;
+            const cardVariant = accountTypeColors[account.accountType] || 'indigo';
+
             return (
-              <motion.div
+              <PremiumCard
                 key={account.id}
-                layout
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="glass-card hover:shadow-xl transition-all duration-300 relative group overflow-hidden"
+                variant={idx % 3 === 0 ? 'indigo' : idx % 3 === 1 ? 'emerald' : 'blue'}
+                delayIndex={idx}
+                className="relative h-64 !p-0 group overflow-hidden border-none shadow-2xl"
               >
-                {/* Decorative Background Gradient */}
-                <div className="absolute top-0 right-0 w-32 h-32 bg-primary-600/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-primary-600/10 transition-colors" />
-
-                <div className="flex items-start justify-between">
-                  <div className="p-3 rounded-2xl bg-white dark:bg-slate-800 shadow-sm border border-border dark:border-white/5">
-                    <Icon className="text-primary-600 dark:text-primary-400" fontSize="large" />
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => openEditModal(account)}
-                      className="p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-white/10 text-textMuted dark:text-gray-400 hover:text-primary-600 transition-colors"
-                    >
-                      <EditIcon fontSize="small" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(account.id)}
-                      className="p-2 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-500/10 text-textMuted dark:text-gray-400 hover:text-rose-600 transition-colors"
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </button>
+                {/* Decorative Elements */}
+                <div className="absolute top-0 right-0 p-8">
+                  <div className="h-14 w-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white border border-white/20 transform group-hover:rotate-12 transition-transform duration-500">
+                    <Icon size={28} strokeWidth={2.5} />
                   </div>
                 </div>
+                
+                <div className="absolute -bottom-10 -left-10 h-40 w-40 bg-white/10 rounded-full blur-3xl pointer-events-none" />
 
-                <div className="mt-4">
-                  <h3 className="text-lg font-black text-textHeadings dark:text-slate-100 uppercase tracking-tight">{account.accountName}</h3>
-                  <p className="text-[10px] text-textSecondary dark:text-slate-500 uppercase tracking-widest font-black mt-1">
-                    {account.accountType.replace("_", " ")}
-                  </p>
-                </div>
+                <div className="h-full flex flex-col justify-between p-8 relative z-10 text-white">
+                  <div>
+                    <h3 className="text-xl font-black uppercase tracking-tight mb-1 group-hover:translate-x-1 transition-transform">
+                      {account.accountName}
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      <PremiumBadge color="gray" className="!bg-white/10 !text-white !border-white/20 !px-2 !py-0.5 !text-[9px]">
+                        {account.accountType.replace("_", " ")}
+                      </PremiumBadge>
+                    </div>
+                  </div>
 
-                <div className="mt-6">
-                  <p className="text-2xl font-black text-primary-600 dark:text-primary-400">
-                    {account.currency} {account.balance.toLocaleString()}
-                  </p>
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80 mb-1">Current Liquidity</p>
+                      <h4 className="text-3xl font-black tracking-tight">
+                        <span className="text-lg opacity-60 mr-1.5">{account.currency}</span>
+                        {account.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </h4>
+                    </div>
+
+                    <div className="flex items-center justify-between border-t border-white/10 pt-4 mt-2">
+                       <p className="text-[10px] font-black uppercase tracking-widest opacity-60">**** **** **** {account.id.toString().padStart(4, '0')}</p>
+                       <div className="flex items-center gap-3">
+                        <button 
+                          onClick={() => openEditModal(account)}
+                          className="h-8 w-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors border border-white/10"
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(account.id)}
+                          className="h-8 w-8 rounded-lg bg-white/10 hover:bg-rose-500/30 flex items-center justify-center transition-colors border border-white/10"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                       </div>
+                    </div>
+                  </div>
                 </div>
-              </motion.div>
+              </PremiumCard>
             );
           })}
+
+          {/* Add New Quick Card */}
+          <button 
+            onClick={() => setShowModal(true)}
+            className="h-64 rounded-[24px] border-2 border-dashed border-gray-100 dark:border-white/10 flex flex-col items-center justify-center gap-4 hover:border-primary-500/50 hover:bg-primary-500/5 transition-all group"
+          >
+            <div className="h-14 w-14 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center text-textMuted group-hover:text-primary-600 group-hover:bg-primary-50 transition-all">
+              <Plus size={32} />
+            </div>
+            <p className="text-sm font-black uppercase tracking-[0.2em] text-textMuted group-hover:text-primary-600 transition-colors">Attach Portfolio</p>
+          </button>
         </div>
       )}
 
       {/* Account Modal */}
       <AnimatePresence>
         {showModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowModal(false)}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-md"
+            />
+            
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              initial={{ opacity: 0, scale: 0.9, y: 40 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="glass-card w-full max-w-md p-6 overflow-hidden relative"
+              exit={{ opacity: 0, scale: 0.9, y: 40 }}
+              className="relative w-full max-w-lg bg-white dark:bg-[#0F172A] rounded-[32px] p-10 shadow-2xl overflow-hidden border border-gray-100 dark:border-white/5"
             >
-              <h2 className="text-xl font-black mb-8 text-textHeadings dark:text-white uppercase tracking-widest">
-                {editingAccount ? "Edit Account" : "Add New Account"}
-              </h2>
+              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-primary-500 to-[#8B5CF6]" />
               
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="flex items-center justify-between mb-8">
                 <div>
-                  <label className="block text-sm font-black text-textSecondary dark:text-slate-300 mb-1.5 uppercase tracking-wide">Account Name</label>
+                  <h2 className="text-2xl font-black tracking-tight text-textHeadings dark:text-white uppercase">
+                    {editingAccount ? "Modify Portfolio" : "Anchor New Asset"}
+                  </h2>
+                  <p className="text-xs font-bold text-textSecondary dark:text-slate-400 mt-1 uppercase tracking-widest">Provide the core financial details</p>
+                </div>
+                <button onClick={() => setShowModal(false)} className="text-textMuted hover:text-textPrimary transition-colors">
+                  <X size={24} />
+                </button>
+              </div>
+              
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[11px] font-black uppercase tracking-[0.2em] text-textMuted px-1">Identity Name</label>
                   <input
                     type="text"
                     required
-                    className="input-field"
-                    placeholder="e.g. HDFC Bank, My Wallet"
+                    className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-[18px] px-6 py-4 text-sm font-bold placeholder:text-textMuted outline-none focus:ring-4 focus:ring-primary-500/5 transition-all"
+                    placeholder="e.g. Chase Primrose, Kraken Wallet"
                     value={formData.accountName}
                     onChange={(e) => setFormData({ ...formData, accountName: e.target.value })}
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-black text-textSecondary dark:text-slate-300 mb-1.5 uppercase tracking-wide">Account Type</label>
-                  <select
-                    className="input-field appearance-none cursor-pointer"
-                    value={formData.accountType}
-                    onChange={(e) => setFormData({ ...formData, accountType: e.target.value })}
-                  >
-                    <option value="BANK_ACCOUNT">Bank Account</option>
-                    <option value="SAVINGS_ACCOUNT">Savings Account</option>
-                    <option value="CASH_WALLET">Cash Wallet</option>
-                    <option value="UPI_WALLET">UPI Wallet</option>
-                    <option value="CREDIT_CARD">Credit Card</option>
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-black text-textSecondary dark:text-slate-300 mb-1.5 uppercase tracking-wide">Balance</label>
-                    <input
-                      type="number"
-                      required
-                      className="input-field"
-                      value={formData.balance}
-                      onChange={(e) => setFormData({ ...formData, balance: Number(e.target.value) })}
-                    />
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-textMuted px-1">Portfolio Type</label>
+                    <div className="relative">
+                      <select
+                        className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-[18px] px-6 py-4 text-sm font-bold outline-none focus:ring-4 focus:ring-primary-500/5 transition-all appearance-none cursor-pointer"
+                        value={formData.accountType}
+                        onChange={(e) => setFormData({ ...formData, accountType: e.target.value })}
+                      >
+                        <option value="BANK_ACCOUNT">Bank Account</option>
+                        <option value="SAVINGS_ACCOUNT">Savings Account</option>
+                        <option value="CASH_WALLET">Physical Liquid</option>
+                        <option value="UPI_WALLET">Digital Wallet</option>
+                        <option value="CREDIT_CARD">Credit Exposure</option>
+                      </select>
+                      <ChevronDown size={14} className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-textMuted" />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-black text-textSecondary dark:text-slate-300 mb-1.5 uppercase tracking-wide">Currency</label>
+
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-textMuted px-1">Valuation</label>
                     <select
-                      className="input-field appearance-none"
+                      className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-[18px] px-6 py-4 text-sm font-bold outline-none transition-all appearance-none"
                       value={formData.currency}
                       onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
                     >
-                      <option value="USD">USD ($)</option>
                       <option value="INR">INR (₹)</option>
+                      <option value="USD">USD ($)</option>
                       <option value="EUR">EUR (€)</option>
                       <option value="GBP">GBP (£)</option>
                     </select>
                   </div>
                 </div>
 
+                <div className="space-y-2">
+                  <label className="text-[11px] font-black uppercase tracking-[0.2em] text-textMuted px-1">Initial Reserve</label>
+                  <input
+                    type="number"
+                    required
+                    className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-[18px] px-6 py-4 text-[24px] font-black tracking-tighter outline-none transition-all"
+                    value={formData.balance}
+                    onChange={(e) => setFormData({ ...formData, balance: Number(e.target.value) })}
+                  />
+                </div>
+
                 <div className="flex gap-4 pt-4">
-                  <button
+                   <button
                     type="button"
                     onClick={() => setShowModal(false)}
-                    className="flex-1 px-4 py-2 rounded-xl bg-gray-50 dark:bg-white/5 text-textSecondary dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors font-bold border border-border dark:border-white/5 shadow-sm"
+                    className="flex-1 py-4 rounded-[20px] bg-gray-50 dark:bg-white/5 text-textSecondary font-black text-xs uppercase tracking-widest hover:bg-gray-100 transition-all border border-gray-100 dark:border-white/10"
                   >
-                    Cancel
+                    Discard
                   </button>
-                  <button type="submit" className="flex-1 btn-primary">
-                    {editingAccount ? "Update Account" : "Create Account"}
-                  </button>
+                  <PremiumButton type="submit" className="flex-[1.5] !rounded-[20px]">
+                    {editingAccount ? "Confirm Changes" : "Create Asset"}
+                  </PremiumButton>
                 </div>
               </form>
             </motion.div>
@@ -265,5 +341,12 @@ const AccountsPage = () => {
     </div>
   );
 };
+
+const X = ({ size, className }: { size: number, className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <line x1="18" y1="6" x2="6" y2="18"></line>
+    <line x1="6" y1="6" x2="18" y2="18"></line>
+  </svg>
+);
 
 export default AccountsPage;

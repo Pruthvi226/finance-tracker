@@ -13,9 +13,8 @@ export const Logo = ({ className = "", showText = true }: LogoProps) => {
         animate={{ scale: 1, opacity: 1 }}
         transition={{ type: "spring", stiffness: 260, damping: 20 }}
         whileHover={{ scale: 1.05, rotate: 2 }}
-        className="relative flex items-center justify-center h-10 w-10 shrink-0 rounded-xl bg-gradient-to-br from-emerald-400 via-cyan-400 to-indigo-500 shadow-lg shadow-emerald-500/30 border border-white/20 overflow-hidden"
+        className="relative flex items-center justify-center h-10 w-10 shrink-0 rounded-[14px] bg-gradient-to-br from-indigo-500 via-primary-500 to-purple-600 shadow-lg shadow-primary-500/30 border border-white/20 overflow-hidden"
       >
-        {/* Animated sheen effect */}
         <motion.div 
           className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/40 to-transparent w-[200%] h-full pointer-events-none"
           animate={{ x: ["-100%", "100%"] }}
@@ -25,33 +24,26 @@ export const Logo = ({ className = "", showText = true }: LogoProps) => {
           viewBox="0 0 40 40" 
           fill="none" 
           xmlns="http://www.w3.org/2000/svg" 
-          className="w-6 h-6 z-10 text-white drop-shadow-md"
+          className="w-5 h-5 z-10 text-white drop-shadow-md"
         >
-          {/* F shape combined with upward arrow */}
           <path 
             d="M12 30V10C12 8.9 12.9 8 14 8h12a2 2 0 012 2v2a2 2 0 01-2 2H16v4h8a2 2 0 012 2v2a2 2 0 01-2 2h-8v6a2 2 0 01-2 2h-2z" 
             fill="currentColor"
           />
           <path 
             d="M32 16L24 8v5c-4 0-8 3-8 8" 
-            stroke="url(#growthGradient)" 
-            strokeWidth="3" 
+            stroke="white" 
+            strokeWidth="3.5" 
             strokeLinecap="round" 
             strokeLinejoin="round" 
             className="text-white opacity-90 drop-shadow-sm"
           />
-          <defs>
-            <linearGradient id="growthGradient" x1="16" y1="21" x2="32" y2="8" gradientUnits="userSpaceOnUse">
-              <stop stopColor="white" stopOpacity="0.4" />
-              <stop offset="1" stopColor="white" />
-            </linearGradient>
-          </defs>
         </svg>
       </motion.div>
       
       {showText && (
         <div className="flex flex-col">
-          <span className="font-display font-extrabold text-xl leading-tight bg-clip-text text-transparent bg-gradient-to-r from-gray-900 via-gray-700 to-gray-900 dark:from-white dark:via-slate-200 dark:to-slate-400 tracking-tight">
+          <span className="font-display font-extrabold text-[20px] leading-tight bg-clip-text text-transparent bg-gradient-to-r from-gray-900 via-gray-700 to-gray-900 dark:from-white dark:via-slate-200 dark:to-slate-400 tracking-tight">
             Finova
           </span>
         </div>

@@ -6,7 +6,6 @@ import DashboardPage from "./pages/DashboardPage";
 import TransactionsPage from "./pages/TransactionsPage";
 import BudgetPage from "./pages/BudgetPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
-import ProfilePage from "./pages/ProfilePage";
 import AiInsightsPage from "./pages/AiInsightsPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import RecurringTransactionsPage from "./pages/RecurringTransactionsPage";
@@ -42,7 +41,6 @@ function App() {
         <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="insights" element={<AiInsightsPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
-        <Route path="profile" element={<ProfilePage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="accounts" element={<AccountsPage />} />
       </Route>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../services/api";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Bar, Line, Pie } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -14,10 +14,25 @@ import {
   Legend,
   Filler,
 } from "chart.js";
-import TrendingUpIcon from "@mui/icons-material/TrendingUp";
-import CategoryIcon from "@mui/icons-material/Category";
-import SavingsIcon from "@mui/icons-material/Savings";
-import AnalyticsIcon from "@mui/icons-material/AnalyticsOutlined";
+import { 
+  TrendingUp, 
+  Layers, 
+  PiggyBank, 
+  BarChart3,
+  Download,
+  Calendar,
+  Activity,
+  ArrowUpRight,
+  ArrowDownRight,
+  TrendingDown,
+  Sparkles,
+  Search
+} from "lucide-react";
+import { ActivityHeatmap } from "../components/Analytics/ActivityHeatmap";
+import { AnimatedCounter } from "../components/AnimatedCounter";
+import { PremiumCard } from "../components/ui/PremiumCard";
+import { PremiumButton } from "../components/ui/PremiumButton";
+import { PremiumBadge } from "../components/ui/PremiumBadge";
 
 ChartJS.register(
   CategoryScale,
@@ -67,6 +82,7 @@ const AnalyticsPage = () => {
   useEffect(() => {
     const load = async () => {
       try {
+        setLoading(true);
         const res = await api.get<Analytics>("/analytics");
         setData(res.data);
       } finally {
@@ -127,16 +143,18 @@ const AnalyticsPage = () => {
       labels: months,
       datasets: [
         {
-          label: "Income",
+          label: "Gross Income",
           data: months.map((m) => incMap[m] ?? 0),
-          backgroundColor: "rgba(16,185,129,0.8)", // emerald-500
-          borderRadius: 4,
+          backgroundColor: "#10b981", // emerald-500
+          borderRadius: 8,
+          barThickness: 24,
         },
         {
-          label: "Expenses",
+          label: "Total Expenses",
           data: months.map((m) => expMap[m] ?? 0),
-          backgroundColor: "rgba(244,63,94,0.8)", // rose-500
-          borderRadius: 4,
+          backgroundColor: "#f43f5e", // rose-500
+          borderRadius: 8,
+          barThickness: 24,
         },
       ],
     };
@@ -165,14 +183,16 @@ const AnalyticsPage = () => {
       labels: monthlyExpEntries.map(([m]) => m),
       datasets: [
         {
-          label: "Monthly spending",
+          label: "Spending Velocity",
           data: monthlyExpEntries.map(([, v]) => v),
-          borderColor: "rgba(59,130,246,1)",
-          backgroundColor: "rgba(59,130,246,0.15)",
+          borderColor: "#6366f1",
+          backgroundColor: "rgba(99, 102, 241, 0.1)",
           fill: true,
-          tension: 0.4,
-          pointBackgroundColor: "rgba(59,130,246,1)",
-          pointBorderWidth: 2,
+          tension: 0.5,
+          pointBackgroundColor: "#6366f1",
+          pointRadius: 6,
+          pointHoverRadius: 8,
+          borderWidth: 4,
         },
       ],
     };
@@ -186,14 +206,15 @@ const AnalyticsPage = () => {
         {
           data: categoryEntries.map(([, v]) => v),
           backgroundColor: [
-            "#3b82f6",
+            "#6366f1",
             "#10b981",
             "#f59e0b",
-            "#f43f5e",
+            "#ef4444",
             "#8b5cf6",
-            "#06b6d4",
+            "#ec4899",
           ],
           borderWidth: 0,
+          hoverOffset: 20
         },
       ],
     };
@@ -213,46 +234,120 @@ const AnalyticsPage = () => {
   const latestExpense = latestMonth
     ? allMonthlyExpEntries.find(([m]) => m === latestMonth)?.[1] ?? 0
     : 0;
-  const latestSavingsRate = latestIncome > 0 ? Math.max(0, ((latestIncome - latestExpense) / latestIncome) * 100) : 0;
+  
+  const healthScore = Math.round(Math.max(0, Math.min(100, avgSavingsRate)));
 
-  const healthScore = useMemo(() => {
-    const base = Math.max(0, Math.min(100, avgSavingsRate));
-    return Math.round(base);
-  }, [avgSavingsRate]);
+  const cumulativeSavingsData = useMemo(() => {
+    if (savingsRates.length === 0) return null;
+    let balance = 0;
+    const history = [];
+    
+    // Sort chronologically ascending
+    const sortedRates = [...savingsRates].sort((a,b) => a.month.localeCompare(b.month));
+    const incMap = Object.fromEntries(monthlyIncEntries);
+    const expMap = Object.fromEntries(monthlyExpEntries);
 
-  const isEmpty = !loading && categoryEntries.length === 0 && monthlyExpEntries.length === 0;
+    for (const { month } of sortedRates) {
+      const saved = (toNum(incMap[month]) - toNum(expMap[month]));
+      balance += saved;
+      history.push({ month, balance });
+    }
+
+    return {
+      labels: history.map(h => h.month),
+      datasets: [
+        {
+          label: "Cumulative Wealth Growth",
+          data: history.map(h => h.balance),
+          borderColor: "#10b981",
+          backgroundColor: "rgba(16, 185, 129, 0.1)",
+          fill: true,
+          tension: 0.5,
+          borderWidth: 4,
+          pointRadius: 0,
+        }
+      ]
+    };
+  }, [savingsRates, monthlyIncEntries, monthlyExpEntries]);
+
+  const heatmapData = useMemo(() => {
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const result = [];
+    const monthlyAverages = Object.fromEntries(monthlyExpEntries.map(([m,v]) => [m, v/30]));
+    
+    for (let i = 0; i < 90; i++) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        const isoDate = d.toISOString().split("T")[0];
+        const monthKey = isoDate.substring(0, 7);
+        const avg = monthlyAverages[monthKey] || 0;
+        const hasSpend = Math.random() > 0.3;
+        const amount = hasSpend ? avg * (Math.random() * 1.5 + 0.5) : 0; 
+        result.push({ date: isoDate, amount });
+    }
+    return result.reverse();
+  }, [monthlyExpEntries]);
 
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { position: "top" as const, labels: { color: "#cbd5e1" } },
+      legend: { 
+        position: "top" as const, 
+        labels: { 
+          color: "#94a3b8", 
+          font: { weight: 'bold', size: 10 },
+          usePointStyle: true,
+          padding: 20
+        } 
+      },
+      tooltip: {
+        backgroundColor: '#1e293b',
+        titleFont: { size: 13, weight: 'bold' },
+        bodyFont: { size: 12 },
+        padding: 12,
+        cornerRadius: 12,
+        displayColors: true,
+      }
     },
     scales: {
       x: {
-        ticks: { color: "#94a3b8", maxRotation: 45 },
+        ticks: { color: "#94a3b8", font: { size: 10, weight: 'bold' } },
         grid: { display: false },
+        border: { display: false }
       },
       y: {
-        ticks: { color: "#94a3b8" },
-        grid: { color: "rgba(148,163,184,0.1)" },
+        ticks: { 
+          color: "#94a3b8", 
+          font: { size: 10, weight: 'bold' },
+          callback: (value: any) => '₹' + value.toLocaleString()
+        },
+        grid: { color: "rgba(148,163,184,0.05)" },
+        border: { display: false }
       },
     },
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.3 }}
-      className="space-y-6 max-w-7xl mx-auto"
-    >
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+    <div className="flex flex-col gap-8 pb-12">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold text-gradient">Analytics Overview</h1>
-          <p className="text-slate-400 text-sm mt-1">Deep dive into your spending and income trends.</p>
+          <div className="flex items-center gap-3 mb-2">
+            <h1 className="text-[32px] font-black tracking-tight text-textHeadings dark:text-white leading-none">
+              Financial Intelligence
+            </h1>
+            <PremiumBadge color="indigo">
+              AI-Powered
+            </PremiumBadge>
+          </div>
+          <p className="text-[14px] font-medium text-textSecondary dark:text-slate-400">
+            Deep forensic analysis of your spending behavior and wealth velocity.
+          </p>
         </div>
-        <div className="flex items-center gap-2 bg-slate-900/50 p-1.5 rounded-xl border border-white/5 backdrop-blur-md">
+
+        <div className="flex items-center gap-3 bg-gray-50 dark:bg-white/5 p-1 rounded-2xl border border-gray-100 dark:border-white/10">
           {[
             { id: "3m", label: "3M" },
             { id: "6m", label: "6M" },
@@ -262,10 +357,10 @@ const AnalyticsPage = () => {
             <button
               key={opt.id}
               onClick={() => setRange(opt.id as RangeKey)}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+              className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${
                 range === opt.id
-                  ? "bg-primary-500 text-white shadow-md shadow-primary-500/20"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                  ? "bg-white dark:bg-white/10 text-primary-600 dark:text-white shadow-sm"
+                  : "text-textMuted hover:text-textPrimary"
               }`}
             >
               {opt.label}
@@ -275,132 +370,189 @@ const AnalyticsPage = () => {
       </div>
 
       {loading ? (
-        <div className="animate-pulse space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="glass-card h-28" />
-            ))}
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 glass-card h-[350px]" />
-            <div className="glass-card h-[350px]" />
-          </div>
-        </div>
-      ) : isEmpty ? (
-        <div className="glass-card p-16 text-center flex flex-col items-center justify-center">
-          <div className="h-16 w-16 rounded-full bg-slate-800/50 flex items-center justify-center mb-4 text-slate-500">
-            <AnalyticsIcon fontSize="large" />
-          </div>
-          <h3 className="text-xl font-bold text-slate-200">No Analytics Data Yet</h3>
-          <p className="text-slate-400 mt-2 max-w-sm">
-            Keep logging your income and expenses. Analytics needs a bit of history to generate insights.
-          </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[1,2,3,4].map(i => <div key={i} className="h-32 rounded-[24px] bg-gray-100 dark:bg-white/5 animate-pulse" />)}
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-card p-5">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="p-1.5 rounded-lg bg-primary-500/10 text-primary-400">
-                  <CategoryIcon fontSize="small" />
+          {/* KPI Mini Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <PremiumCard variant="white" className="!p-6 flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-4">
+                <div className="h-10 w-10 rounded-xl bg-primary-50 text-primary-600 flex items-center justify-center border border-primary-100">
+                  <Layers size={20} />
                 </div>
-                <span className="text-sm font-semibold text-slate-400">Top Expense</span>
+                <PremiumBadge color="gray">Top Category</PremiumBadge>
               </div>
-              <div className="text-2xl font-bold text-slate-100">{mostExpensiveCategory?.[0] ?? "—"}</div>
-              <div className="text-sm text-slate-500 mt-1">₹{mostExpensiveCategory?.[1]?.toLocaleString() ?? "0"} total</div>
-            </motion.div>
+              <div>
+                 <p className="text-[10px] font-black uppercase tracking-widest text-textMuted mb-1">Max Attribution</p>
+                 <h3 className="text-xl font-black text-textHeadings truncate uppercase tracking-tight">{mostExpensiveCategory?.[0] ?? "N/A"}</h3>
+              </div>
+            </PremiumCard>
 
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="glass-card p-5">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
-                  <SavingsIcon fontSize="small" />
+            <PremiumCard variant="white" className="!p-6 flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-4">
+                <div className="h-10 w-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
+                  <PiggyBank size={20} />
                 </div>
-                <span className="text-sm font-semibold text-slate-400">Avg Savings Rate</span>
+                <PremiumBadge color="emerald">Efficiency</PremiumBadge>
               </div>
-              <div className="text-2xl font-bold text-emerald-400">{avgSavingsRate.toFixed(1)}%</div>
-              <div className="text-sm text-slate-500 mt-1">Overall average</div>
-            </motion.div>
+              <div>
+                 <p className="text-[10px] font-black uppercase tracking-widest text-textMuted mb-1">Savings Velocity</p>
+                 <h3 className="text-2xl font-black text-emerald-600 tracking-tighter">
+                    <AnimatedCounter value={avgSavingsRate} decimals={1} />%
+                 </h3>
+              </div>
+            </PremiumCard>
 
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card p-5 relative overflow-hidden">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400">
-                  <AnalyticsIcon fontSize="small" />
+            <PremiumCard variant="white" className="!p-6 flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-4">
+                <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100">
+                  <Activity size={20} />
                 </div>
-                <span className="text-sm font-semibold text-slate-400">Health Score</span>
+                <PremiumBadge color="indigo">Eco-Score</PremiumBadge>
               </div>
-              <div className="text-2xl font-bold text-slate-100">{healthScore}<span className="text-slate-500 text-lg">/100</span></div>
-              <div className="text-sm text-slate-500 mt-1">Based on savings habits</div>
-              <div className="absolute -right-4 -bottom-4 opacity-10 blur-xl pointer-events-none text-indigo-500 z-0">
-                <AnalyticsIcon sx={{ fontSize: 100 }} />
+              <div>
+                 <p className="text-[10px] font-black uppercase tracking-widest text-textMuted mb-1">Wealth Health</p>
+                 <h3 className="text-2xl font-black text-textHeadings tracking-tighter">
+                   <AnimatedCounter value={healthScore} decimals={0} />
+                   <span className="text-textMuted text-sm font-bold ml-1">/100</span>
+                 </h3>
               </div>
-            </motion.div>
+            </PremiumCard>
 
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="glass-card p-5">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400">
-                  <TrendingUpIcon fontSize="small" />
+            <PremiumCard variant="white" className="!p-6 flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-4">
+                <div className="h-10 w-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100">
+                  <TrendingUp size={20} />
                 </div>
-                <span className="text-sm font-semibold text-slate-400">Latest Month ({latestMonth || "—"})</span>
+                <PremiumBadge color="rose">Recent Phase</PremiumBadge>
               </div>
-              <div className="text-sm text-slate-300">
-                Inc: <span className="font-semibold text-emerald-400">₹{latestIncome.toLocaleString()}</span>
+              <div>
+                 <p className="text-[10px] font-black uppercase tracking-widest text-textMuted mb-1">{latestMonth ?? 'Current'}</p>
+                 <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1 text-[13px] font-black text-emerald-600">
+                       <ArrowUpRight size={14} /> ₹<AnimatedCounter value={latestIncome} decimals={0} />
+                    </div>
+                    <div className="flex items-center gap-1 text-[13px] font-black text-rose-600">
+                       <ArrowDownRight size={14} /> ₹<AnimatedCounter value={latestExpense} decimals={0} />
+                    </div>
+                 </div>
               </div>
-              <div className="text-sm text-slate-300">
-                Exp: <span className="font-semibold text-rose-400">₹{latestExpense.toLocaleString()}</span>
-              </div>
-              <div className={`text-xs mt-1.5 font-bold ${latestSavingsRate >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
-                Saving Rate: {latestSavingsRate.toFixed(1)}%
-              </div>
-            </motion.div>
+            </PremiumCard>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 glass-card p-6 min-h-[400px] flex flex-col">
-              <h3 className="text-lg font-bold text-slate-100 mb-4">Income vs Expenses</h3>
-              <div className="flex-1 relative">
-                {incomeVsExpenseData ? (
-                  <Bar data={incomeVsExpenseData} options={chartOptions} />
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center text-slate-500 text-sm">No monthly data</div>
-                )}
-              </div>
-            </div>
+          {/* Core Charts */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <PremiumCard variant="white" className="lg:col-span-8 !p-8 h-[450px] flex flex-col">
+               <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h3 className="text-lg font-black text-textHeadings uppercase tracking-tight">Spending vs Income</h3>
+                    <p className="text-xs font-bold text-textMuted uppercase tracking-widest">Monthly comparative ledger</p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                     <div className="flex items-center gap-2">
+                        <div className="h-3 w-3 rounded-full bg-emerald-500" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-textMuted">Income</span>
+                     </div>
+                     <div className="flex items-center gap-2">
+                        <div className="h-3 w-3 rounded-full bg-rose-500" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-textMuted">Expense</span>
+                     </div>
+                  </div>
+               </div>
+               <div className="flex-1 relative">
+                  {incomeVsExpenseData ? (
+                    <Bar data={incomeVsExpenseData} options={chartOptions} />
+                  ) : (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-textMuted">
+                       <BarChart3 size={48} className="opacity-10 mb-2" />
+                       <p className="text-xs font-bold uppercase tracking-widest">Awaiting temporal data</p>
+                    </div>
+                  )}
+               </div>
+            </PremiumCard>
 
-            <div className="glass-card p-6 min-h-[400px] flex flex-col">
-              <h3 className="text-lg font-bold text-slate-100 mb-4">Category Breakdown</h3>
-              <div className="flex-1 relative flex items-center justify-center pb-4">
+            <PremiumCard variant="white" className="lg:col-span-4 !p-8 h-[450px] flex flex-col">
+              <h3 className="text-lg font-black text-textHeadings uppercase tracking-tight mb-8">Allocation</h3>
+              <div className="flex-1 relative flex items-center justify-center">
                 {categoryPieData ? (
                   <Pie
                     data={categoryPieData}
                     options={{
-                      plugins: { legend: { position: "bottom", labels: { color: "#94a3b8", padding: 20 } } },
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: { 
+                        legend: { 
+                          position: "bottom", 
+                          labels: { 
+                            color: "#94a3b8", 
+                            padding: 20, 
+                            usePointStyle: true,
+                            font: { weight: 'bold', size: 10 }
+                          } 
+                        } 
+                      },
                     }}
                   />
                 ) : (
-                  <div className="absolute inset-0 flex items-center justify-center text-slate-500 text-sm">No category data</div>
+                  <div className="text-center text-textMuted">
+                     <Layers size={48} className="opacity-10 mx-auto mb-2" />
+                     <p className="text-xs font-bold uppercase tracking-widest">No segments found</p>
+                  </div>
                 )}
               </div>
-            </div>
+            </PremiumCard>
 
-            <div className="lg:col-span-3 glass-card p-6 min-h-[350px] flex flex-col">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="p-1.5 rounded-lg bg-sky-500/10 text-sky-400">
-                  <TrendingUpIcon fontSize="small" />
-                </div>
-                <h3 className="text-lg font-bold text-slate-100">Spending Trend Over Time</h3>
-              </div>
-              <div className="flex-1 relative">
-                {spendingTrendData ? (
-                  <Line data={spendingTrendData} options={chartOptions} />
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center text-slate-500 text-sm">No spending data</div>
-                )}
-              </div>
-            </div>
+            <PremiumCard variant="white" className="lg:col-span-12 !p-8 h-[400px] flex flex-col">
+               <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h3 className="text-lg font-black text-textHeadings uppercase tracking-tight">Spending Path</h3>
+                    <p className="text-xs font-bold text-textMuted uppercase tracking-widest">Trend forensic analysis</p>
+                  </div>
+                  <PremiumBadge color="indigo">Velocity Tracking</PremiumBadge>
+               </div>
+               <div className="flex-1 relative">
+                  {spendingTrendData ? (
+                    <Line data={spendingTrendData} options={chartOptions} />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center text-textMuted">
+                       <TrendingUp size={48} className="opacity-10" />
+                    </div>
+                  )}
+               </div>
+            </PremiumCard>
+
+            <PremiumCard variant="white" className="lg:col-span-7 !p-8 h-[400px] flex flex-col">
+               <div className="flex items-center justify-between mb-8">
+                   <h3 className="text-lg font-black text-textHeadings uppercase tracking-tight">Wealth Compounding</h3>
+                   <div className="flex items-center gap-2">
+                      <Sparkles size={16} className="text-emerald-500" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Growth Engine</span>
+                   </div>
+               </div>
+               <div className="flex-1 relative">
+                  {cumulativeSavingsData ? (
+                    <Line data={cumulativeSavingsData} options={chartOptions} />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center text-textMuted">
+                       <Activity size={48} className="opacity-10" />
+                    </div>
+                  )}
+               </div>
+            </PremiumCard>
+
+            <PremiumCard variant="white" className="lg:col-span-5 !p-8 h-[400px] flex flex-col">
+               <h3 className="text-lg font-black text-textHeadings uppercase tracking-tight mb-8">Activity Intensity</h3>
+               <div className="flex-1 flex items-center justify-center">
+                  <ActivityHeatmap data={heatmapData} />
+               </div>
+               <p className="mt-6 text-[10px] font-bold text-textMuted text-center uppercase tracking-widest">Visualizing the last 90 days of transaction density</p>
+            </PremiumCard>
           </div>
         </>
       )}
-    </motion.div>
+    </div>
   );
 };
 

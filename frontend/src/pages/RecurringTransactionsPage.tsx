@@ -1,10 +1,26 @@
 import { useEffect, useState } from "react";
 import api from "../services/api";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
-import RepeatOneIcon from '@mui/icons-material/RepeatOne';
-import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
-import CategoryIcon from '@mui/icons-material/Category';
+import { 
+  Repeat, 
+  Plus, 
+  Layers, 
+  Trash2, 
+  Activity, 
+  Zap, 
+  Pause, 
+  Play,
+  Calendar,
+  IndianRupee,
+  CreditCard,
+  ChevronDown,
+  X
+} from "lucide-react";
+import { PremiumCard } from "../components/ui/PremiumCard";
+import { PremiumButton } from "../components/ui/PremiumButton";
+import { PremiumBadge } from "../components/ui/PremiumBadge";
+import { AnimatedCounter } from "../components/AnimatedCounter";
 
 type Category = {
   id: number;
@@ -49,6 +65,7 @@ const RecurringTransactionsPage = () => {
 
   const loadData = async () => {
     try {
+      setLoading(true);
       const [txnRes, catRes] = await Promise.all([
         api.get<RecurringTransaction[]>("/recurring-transactions"),
         api.get<Category[]>("/categories")
@@ -56,7 +73,7 @@ const RecurringTransactionsPage = () => {
       setTransactions(txnRes.data);
       setCategories(catRes.data);
     } catch {
-      toast.error("Failed to load recurring transactions");
+      toast.error("Failed to load recurring flows");
     } finally {
       setLoading(false);
     }
@@ -79,7 +96,7 @@ const RecurringTransactionsPage = () => {
         categoryId: parseInt(categoryId),
         description
       });
-      toast.success("Recurring transaction created successfully!");
+      toast.success("Subscription initialized successfully!");
       setShowForm(false);
       
       // Reset form
@@ -90,7 +107,7 @@ const RecurringTransactionsPage = () => {
       
       loadData();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to create");
+      toast.error(err.response?.data?.message || "Failed to initialize cycle");
     } finally {
       setSubmitting(false);
     }
@@ -103,230 +120,320 @@ const RecurringTransactionsPage = () => {
         categoryId: txn.category?.id || txn.categoryId,
         active: !txn.active
       });
-      toast.success(`Subscription ${!txn.active ? 'enabled' : 'disabled'}`);
+      toast.success(`Workflow ${!txn.active ? 'resumed' : 'suspended'}`);
       loadData();
     } catch {
-      toast.error("Failed to update status");
+      toast.error("Failed to modulate flow");
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this subscription?")) return;
+    if (!confirm("Are you sure you want to terminate this subscription?")) return;
     try {
       await api.delete(`/recurring-transactions/${id}`);
-      toast.success("Subscription removed");
+      toast.success("Cycle terminated");
       loadData();
     } catch {
       toast.error("Failed to delete subscription");
     }
   };
 
-  // Calculations for summary card
-  const activeIncome = transactions
-    .filter(t => t.active && t.type === "INCOME")
-    .reduce((sum, t) => sum + (t.frequency === 'YEARLY' ? t.amount/12 : t.frequency === 'MONTHLY' ? t.amount : t.frequency === 'WEEKLY' ? t.amount * 4.33 : t.amount * 30), 0);
-    
-  const activeExpense = transactions
-    .filter(t => t.active && t.type === "EXPENSE")
-    .reduce((sum, t) => sum + (t.frequency === 'YEARLY' ? t.amount/12 : t.frequency === 'MONTHLY' ? t.amount : t.frequency === 'WEEKLY' ? t.amount * 4.33 : t.amount * 30), 0);
-
-  if (loading) {
-    return (
-      <div className="space-y-6 max-w-7xl mx-auto animate-pulse">
-        <div className="h-10 w-48 bg-slate-800 rounded-lg"></div>
-        <div className="h-40 w-full glass-card"></div>
-        <div className="h-80 w-full glass-card"></div>
-      </div>
-    );
-  }
+  const monthlyTotals = transactions.reduce((acc, t) => {
+    if (!t.active) return acc;
+    const mult = t.frequency === 'YEARLY' ? 1/12 : t.frequency === 'MONTHLY' ? 1 : t.frequency === 'WEEKLY' ? 4.33 : 30;
+    const amt = t.amount * mult;
+    if (t.type === 'INCOME') acc.income += amt;
+    else acc.expense += amt;
+    return acc;
+  }, { income: 0, expense: 0 });
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="space-y-6 max-w-7xl mx-auto"
-    >
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+    <div className="flex flex-col gap-8 pb-12">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h1 className="text-4xl font-black flex items-center gap-4 text-textHeadings dark:text-slate-100 uppercase tracking-tighter">
-            <span className="text-primary-600"><RepeatOneIcon fontSize="large"/></span> Subscriptions
-          </h1>
-          <p className="text-sm font-black text-textSecondary dark:text-slate-400 mt-2 uppercase tracking-widest">Architect your recurring cashflow</p>
-        </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="btn-primary py-2 px-4 shadow-lg shadow-primary-500/20"
-        >
-          <AddCircleOutlineIcon className="mr-2" fontSize="small" />
-          New Subscription
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="glass-card p-6 border-l-4 border-l-emerald-500 shadow-sm">
-          <div className="text-[10px] font-black text-textSecondary dark:text-slate-400 mb-2 uppercase tracking-widest">Projected Monthly Income</div>
-          <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-tighter">₹{activeIncome.toLocaleString()}</div>
-          <div className="text-[10px] font-black text-textSecondary dark:text-slate-500 mt-2 uppercase tracking-widest">from active recurring deposits</div>
-        </div>
-        <div className="glass-card p-6 border-l-4 border-l-rose-500 shadow-sm">
-          <div className="text-[10px] font-black text-textSecondary dark:text-slate-400 mb-2 uppercase tracking-widest">Projected Monthly Burn</div>
-          <div className="text-3xl font-black text-rose-600 dark:text-rose-400 tracking-tighter">₹{activeExpense.toLocaleString()}</div>
-          <div className="text-[10px] font-black text-textSecondary dark:text-slate-500 mt-2 uppercase tracking-widest">from active recurring subscriptions</div>
-        </div>
-      </div>
-      </div>
-
-      {showForm && (
-        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="glass-card p-6 sm:p-8 space-y-6">
-          <h2 className="text-xl font-black text-textPrimary dark:text-slate-100 mb-6 uppercase tracking-tight">Setup Recurring Transaction</h2>
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              <div>
-                <label className="block text-sm font-black text-textSecondary dark:text-slate-300 mb-1.5 uppercase tracking-wide">Title (e.g., Netflix)</label>
-                <input
-                  className="input-field font-bold"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Monthly Rent"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-black text-textSecondary dark:text-slate-300 mb-1.5 uppercase tracking-wide">Amount</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  className="input-field font-bold"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="0.00"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-black text-textSecondary dark:text-slate-300 mb-1.5 uppercase tracking-wide">Type</label>
-                <select className="input-field font-bold appearance-none" value={type} onChange={(e) => setType(e.target.value as any)}>
-                  <option value="EXPENSE">Expense</option>
-                  <option value="INCOME">Income</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-black text-textSecondary dark:text-slate-300 mb-1.5 uppercase tracking-wide">Category</label>
-                <select className="input-field font-bold appearance-none" value={categoryId} onChange={(e) => setCategoryId(e.target.value)} required>
-                  <option value="">Select Category</option>
-                  {currentCategories.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-black text-textSecondary dark:text-slate-300 mb-1.5 uppercase tracking-wide">Frequency</label>
-                <select className="input-field font-bold appearance-none" value={frequency} onChange={(e) => setFrequency(e.target.value as any)}>
-                  <option value="MONTHLY">Monthly</option>
-                  <option value="WEEKLY">Weekly</option>
-                  <option value="YEARLY">Yearly</option>
-                  <option value="DAILY">Daily</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-black text-textSecondary dark:text-slate-300 mb-1.5 uppercase tracking-wide">Start Date</label>
-                <input
-                  type="date"
-                  className="input-field font-bold"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-black text-textSecondary dark:text-slate-300 mb-1.5 uppercase tracking-wide">Description (Optional)</label>
-              <input
-                className="input-field font-bold"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Additional details..."
-              />
-            </div>
-            <div className="flex gap-4 pt-4">
-              <button type="submit" disabled={submitting} className="btn-primary flex-1">
-                {submitting ? "Saving..." : "Create Subscription"}
-              </button>
-              <button type="button" onClick={() => setShowForm(false)} className="px-6 py-2 rounded-xl text-sm font-bold text-textMuted hover:text-textPrimary hover:bg-gray-100 dark:hover:bg-white/5 transition-all border border-border dark:border-white/5 shadow-sm">
-                Cancel
-              </button>
-            </div>
-          </form>
-        </motion.div>
-      )}
-
-      <div className="glass-card overflow-hidden">
-        {transactions.length === 0 ? (
-          <div className="p-16 text-center">
-            <div className="h-16 w-16 mx-auto rounded-full bg-slate-800/50 flex items-center justify-center mb-4 text-slate-500">
-              <RepeatOneIcon fontSize="large" />
-            </div>
-            <h3 className="text-xl font-bold text-slate-200">No subscriptions yet</h3>
-            <p className="text-slate-400 mt-2">Set up your recurring bills and income to automate your ledger.</p>
+          <div className="flex items-center gap-3 mb-2">
+            <h1 className="text-[32px] font-black tracking-tight text-textHeadings dark:text-white leading-none">
+              Recurring Cycles
+            </h1>
+            <PremiumBadge color="primary">
+              <Zap size={12} className="mr-1" />
+              Automated Flows
+            </PremiumBadge>
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left text-textSecondary dark:text-slate-300">
-              <thead className="text-[10px] uppercase bg-gray-50 dark:bg-slate-900 text-textSecondary dark:text-slate-500 border-b border-border dark:border-white/5">
-                <tr>
-                  <th className="px-6 py-5 font-black tracking-widest">Title</th>
-                  <th className="px-6 py-5 font-black tracking-widest">Amount</th>
-                  <th className="px-6 py-5 font-black tracking-widest">Frequency</th>
-                  <th className="px-6 py-5 font-black tracking-widest">Next Charge</th>
-                  <th className="px-6 py-5 font-black tracking-widest text-center">Status</th>
-                  <th className="px-6 py-5 font-black tracking-widest text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.map((txn) => (
-                  <tr key={txn.id} className={`border-b border-white/5 hover:bg-white/[0.02] transition-colors ${!txn.active ? 'opacity-50' : ''}`}>
-                    <td className="px-6 py-5">
-                      <div className="font-black text-textPrimary dark:text-slate-200 uppercase tracking-tight">{txn.title}</div>
-                      <div className="text-[10px] flex items-center gap-1 mt-1 text-textMuted dark:text-slate-500 font-bold uppercase tracking-widest">
-                        <CategoryIcon sx={{ fontSize: 13 }} className="opacity-70" /> {txn.category?.name || "Uncategorized"}
-                      </div>
-                    </td>
-                    <td className="px-6 py-5 font-black">
-                      <span className={txn.type === "INCOME" ? "text-emerald-600" : "text-textHeadings"}>
-                        {txn.type === "INCOME" ? "+" : "-"}₹{txn.amount.toLocaleString()}
-                      </span>
-                    </td>
-                    <td className="px-6 py-5 font-black text-xs uppercase tracking-widest">
-                      <span className="px-2.5 py-1 rounded-lg bg-gray-50 dark:bg-slate-800 text-textSecondary dark:text-slate-300 border border-border dark:border-white/10 shadow-sm">
-                        {txn.frequency}
-                      </span>
-                    </td>
-                    <td className="px-6 py-5">
-                      <span className="text-textPrimary dark:text-slate-300 font-bold">{txn.nextExecutionDate ? new Date(txn.nextExecutionDate).toLocaleDateString() : '—'}</span>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <button onClick={() => toggleStatus(txn)} className={`px-2.5 py-1 rounded-full text-xs font-semibold ${txn.active ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-800 text-slate-500 border border-white/10'}`}>
-                        {txn.active ? 'ACTIVE' : 'PAUSED'}
-                      </button>
-                    </td>
-                    <td className="px-6 py-5 text-right">
-                      <button
-                        onClick={() => handleDelete(txn.id)}
-                        className="text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 text-xs font-black uppercase tracking-widest hover:underline"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <p className="text-[14px] font-medium text-textSecondary dark:text-slate-400">
+            Monitor and manage your repeating incomes and automated subscription burns.
+          </p>
+        </div>
+
+        <PremiumButton 
+          onClick={() => setShowForm(true)}
+          className="shadow-xl shadow-primary-500/30"
+        >
+          <Plus size={18} strokeWidth={3} />
+          Append Cycle
+        </PremiumButton>
+      </div>
+
+      {/* Summary Projection */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <PremiumCard variant="emerald" className="border-none shadow-xl overflow-hidden relative p-8">
+           <div className="absolute top-0 right-0 p-6 opacity-20 pointer-events-none transform translate-x-4 -translate-y-4">
+              <Activity size={100} strokeWidth={1} />
+           </div>
+           <p className="text-[11px] font-black uppercase tracking-[0.2em] text-white/70 mb-1">Projected Monthly Inflow</p>
+           <h3 className="text-4xl font-black text-white tracking-tighter">
+             ₹<AnimatedCounter value={monthlyTotals.income} decimals={0} />
+           </h3>
+           <div className="mt-4 flex items-center gap-2">
+              <PremiumBadge color="gray" className="!bg-white/10 !text-white !border-white/20 !px-2 !py-0.5 !text-[9px]">
+                Active Streams
+              </PremiumBadge>
+           </div>
+        </PremiumCard>
+
+        <PremiumCard variant="rose" className="border-none shadow-xl overflow-hidden relative p-8">
+           <div className="absolute top-0 right-0 p-6 opacity-20 pointer-events-none transform translate-x-4 -translate-y-4 text-white">
+              <ChevronDown size={100} strokeWidth={1} />
+           </div>
+           <p className="text-[11px] font-black uppercase tracking-[0.2em] text-white/70 mb-1">Projected Monthly Burn</p>
+           <h3 className="text-4xl font-black text-white tracking-tighter">
+             ₹<AnimatedCounter value={monthlyTotals.expense} decimals={0} />
+           </h3>
+           <div className="mt-4 flex items-center gap-2">
+              <PremiumBadge color="gray" className="!bg-white/10 !text-white !border-white/20 !px-2 !py-0.5 !text-[9px]">
+                Subscription Load
+              </PremiumBadge>
+           </div>
+        </PremiumCard>
+      </div>
+
+      {/* Form Overlay */}
+      <AnimatePresence>
+        {showForm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowForm(false)}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-md"
+            />
+            
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 40 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 40 }}
+              className="relative w-full max-w-2xl bg-white dark:bg-[#0F172A] rounded-[32px] p-10 shadow-2xl overflow-hidden border border-gray-100 dark:border-white/5"
+            >
+              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-primary-500 to-indigo-600" />
+              
+              <div className="flex items-center justify-between mb-8">
+                <div>
+                  <h2 className="text-2xl font-black tracking-tight text-textHeadings dark:text-white uppercase">
+                    Configure Recurrence
+                  </h2>
+                  <p className="text-xs font-bold text-textSecondary dark:text-slate-400 mt-1 uppercase tracking-widest">Architect your repeating cash flows</p>
+                </div>
+                <button onClick={() => setShowForm(false)} className="text-textMuted hover:text-textPrimary transition-colors">
+                  <X size={24} />
+                </button>
+              </div>
+              
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2 col-span-2 sm:col-span-1">
+                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-textMuted px-1">Designation Title</label>
+                    <input
+                      type="text"
+                      required
+                      className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-[18px] px-6 py-4 text-sm font-bold placeholder:text-textMuted outline-none"
+                      placeholder="e.g. Netflix, Rent, Monthly Salary"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2 col-span-2 sm:col-span-1">
+                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-textMuted px-1">Periodic Amount</label>
+                    <div className="relative">
+                      <IndianRupee size={16} className="absolute left-5 top-1/2 -translate-y-1/2 text-primary-500" />
+                      <input
+                        type="number"
+                        step="0.01"
+                        required
+                        className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-[18px] pl-12 pr-6 py-4 text-sm font-bold outline-none"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-textMuted px-1">Flow Type</label>
+                    <select
+                      className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-[18px] px-6 py-4 text-sm font-bold outline-none appearance-none cursor-pointer"
+                      value={type}
+                      onChange={(e) => setType(e.target.value as any)}
+                    >
+                      <option value="EXPENSE">Expense Flow</option>
+                      <option value="INCOME">Income Flow</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-textMuted px-1">Temporal Category</label>
+                    <select
+                      className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-[18px] px-6 py-4 text-sm font-bold outline-none appearance-none cursor-pointer"
+                      value={categoryId}
+                      onChange={(e) => setCategoryId(e.target.value)}
+                      required
+                    >
+                      <option value="">Select Domain</option>
+                      {currentCategories.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-textMuted px-1">Cyclicality (Frequency)</label>
+                    <select
+                      className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-[18px] px-6 py-4 text-sm font-bold outline-none appearance-none cursor-pointer"
+                      value={frequency}
+                      onChange={(e) => setFrequency(e.target.value as any)}
+                    >
+                      <option value="MONTHLY">Monthly</option>
+                      <option value="WEEKLY">Weekly</option>
+                      <option value="YEARLY">Yearly</option>
+                      <option value="DAILY">Daily</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-textMuted px-1">Activation Date</label>
+                    <input
+                      type="date"
+                      required
+                      className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-[18px] px-6 py-4 text-sm font-bold outline-none"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-4 pt-4">
+                   <button
+                    type="button"
+                    onClick={() => setShowForm(false)}
+                    className="flex-1 py-4 rounded-[20px] bg-gray-50 dark:bg-white/5 text-textSecondary font-black text-xs uppercase tracking-widest hover:bg-gray-100 transition-all border border-gray-100 dark:border-white/10"
+                  >
+                    Discard
+                  </button>
+                  <PremiumButton type="submit" className="flex-[1.5] !rounded-[20px] !bg-gradient-to-r from-primary-500 to-indigo-600">
+                    {submitting ? "Processing..." : "Establish Cycle"}
+                  </PremiumButton>
+                </div>
+              </form>
+            </motion.div>
           </div>
         )}
+      </AnimatePresence>
+
+      {/* Main List */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        <AnimatePresence mode="popLayout">
+          {loading ? (
+             [1,2,3].map(i => <div key={i} className="h-48 rounded-[24px] bg-gray-100 dark:bg-white/5 animate-pulse" />)
+          ) : transactions.length === 0 ? (
+            <div className="col-span-full py-24 text-center flex flex-col items-center">
+                <div className="h-24 w-24 rounded-[32px] bg-gray-50 dark:bg-white/5 flex items-center justify-center mb-6">
+                  <Repeat size={40} className="text-gray-200" />
+                </div>
+                <h3 className="text-xl font-black text-textHeadings dark:text-white uppercase tracking-tight">No Automated Cycles</h3>
+                <p className="text-sm font-medium text-textSecondary dark:text-slate-400 mt-2 max-w-sm">
+                    Configure your first recurring flow to architect your predictable cashflows.
+                </p>
+            </div>
+          ) : (
+            transactions.map((txn, idx) => (
+              <PremiumCard
+                key={txn.id}
+                delayIndex={idx}
+                variant="white"
+                className={`relative group overflow-hidden border-none shadow-sm hover:shadow-xl transition-all ${
+                  !txn.active ? 'opacity-60 saturate-50' : ''
+                }`}
+              >
+                <div className={`absolute top-0 left-0 w-1.5 h-full ${
+                  txn.type === 'INCOME' ? 'bg-emerald-500' : 'bg-rose-500'
+                }`} />
+
+                <div className="flex flex-col h-full p-6">
+                  <div className="flex items-start justify-between mb-6 ml-1">
+                    <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${
+                      txn.type === 'INCOME' 
+                        ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' 
+                        : 'bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400'
+                    }`}>
+                      <Repeat size={24} strokeWidth={2.5} />
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => toggleStatus(txn)}
+                        className={`h-9 w-9 rounded-xl flex items-center justify-center transition-all ${
+                          txn.active 
+                            ? 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400' 
+                            : 'bg-primary-50 text-primary-600 dark:bg-primary-500/10 dark:text-primary-400'
+                        }`}
+                        title={txn.active ? "Pause Cycle" : "Resume Cycle"}
+                      >
+                        {txn.active ? <Pause size={16} /> : <Play size={16} />}
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(txn.id)}
+                        className="h-9 w-9 rounded-xl bg-gray-50 dark:bg-white/10 text-textMuted hover:text-rose-600 hover:bg-rose-50 transition-all border border-gray-100 dark:border-white/10 flex items-center justify-center"
+                        title="Terminate Cycle"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="ml-1 mb-6 flex-1">
+                    <h3 className="text-lg font-black text-textHeadings dark:text-white uppercase tracking-tight truncate mb-1">{txn.title}</h3>
+                    <div className="flex items-center gap-2">
+                       <PremiumBadge color="gray" className="!bg-gray-100/50 !text-textMuted !px-2 !py-0.5 !text-[9px]">
+                         {txn.category?.name || "No Category"}
+                       </PremiumBadge>
+                       <span className="text-[10px] font-black uppercase tracking-[0.1em] text-textMuted opacity-60">• {txn.frequency}</span>
+                    </div>
+                  </div>
+
+                  <div className="ml-1 pt-4 border-t border-gray-100 dark:border-white/10">
+                    <div className="flex justify-between items-end">
+                      <div>
+                         <p className="text-[10px] font-black uppercase tracking-widest text-textMuted mb-0.5">Quantum</p>
+                         <h4 className={`text-xl font-black ${txn.type === 'INCOME' ? 'text-emerald-600' : 'text-textHeadings dark:text-white'}`}>
+                           {txn.type === 'INCOME' ? '+' : '-'}₹{txn.amount.toLocaleString()}
+                         </h4>
+                      </div>
+                      <div className="text-right">
+                         <p className="text-[10px] font-black uppercase tracking-widest text-textMuted mb-1 flex items-center justify-end gap-1">
+                           Next: <Calendar size={10} />
+                         </p>
+                         <p className="text-xs font-bold text-textPrimary dark:text-white">{txn.nextExecutionDate ? new Date(txn.nextExecutionDate).toLocaleDateString() : '--/--/--'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </PremiumCard>
+            ))
+          )}
+        </AnimatePresence>
       </div>
-    </motion.div>
+    </div>
   );
 };
 
